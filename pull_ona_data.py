@@ -5,11 +5,13 @@ import requests
 import logging
 from pymongo import MongoClient
 
+from airflow.models import Variable
+
 default_args = {
     'owner': 'Hikaya',
     'depends_on_past': False,
-    'start_date': datetime(2019, 10, 1),
-    'email': ['mail.nijinsha@gmail.com'],
+    'start_date': datetime(2019, 10, 21),
+    'email': ['odenypeter@gmail.com'],
     'email_on_failure': False,
     'email_on_retry': False,
     'catchup_by_default': False,
@@ -17,48 +19,52 @@ default_args = {
     'retry_delay': timedelta(minutes=1),
 }
 
-dag = DAG('Pull_data_from_Ona', default_args=default_args)
+# get all the variables
+MONGO_DB_USER = Variable.get('MONGO_DB_USER', default_var='')
+MONGO_DB_PASSWORD = Variable.get('MONGO_DB_PASSWORD', default_var='')
+MONGO_DB_HOST = Variable.get('MONGO_DB_HOST', default_var='127.0.0.1')
+MONGO_DB_PORT = Variable.get('MONGO_DB_PORT', default_var=27017)
+ONA_API_URL = Variable.get('ONA_API_URL', default_var='https://api.ona.io/api/v1/')
+ONA_TOKEN = Variable.get('ONA_TOKEN', default_var='')
+
+dag = DAG('pull_data_from_ona', default_args=default_args)
 
 
-def invoke_http(**kwargs):
-    url = "https://api.ona.io/api/v1/projects"
-    response = requests.get(url,
-                headers= {'Authorization':'Token 4a9f8f198b2fb846fec2104271add15d3051a94d'}
-                )
+def get_ona_projects(**kwargs):
+    """
+    load ONA projects from ONA API
+    """
+    response = requests.get(
+        '{}/projects'.format(ONA_API_URL),
+        headers={'Authorization': 'Token {}'.format(ONA_TOKEN)}
+    )
     return response.json()
 
 
-def get_formdata(**context):
+def get_ona_form_data(**context):
+    """
+    get ONA form data
+    :param context: from the previous task instance
+    :return: form data
+    """
     ti = context['ti']
-    json = ti.xcom_pull(task_ids='Get_projects_from_API')
+    json = ti.xcom_pull(task_ids='Get_ONA_projects_from_API')
 
     for el in json:
         survey_form = list(filter(lambda x: str(x['formid']) == '447910', el['forms']))
         if survey_form:
-            url = "https://api.ona.io/api/v1/data/{}".format(survey_form[0]['formid'])
-            response = requests.get(url,
-                headers= {'Authorization':'Token 4a9f8f198b2fb846fec2104271add15d3051a94d'}
-                )
+            url = "{}data/{}".format(ONA_API_URL, survey_form[0]['formid'])
+            response = requests.get(url, headers={'Authorization': 'Token {}'.format(ONA_TOKEN)})
             data = {'data': response.json(), 'project_name': el['name']}
     return data
 
 
-def rename_keys(data):
-    object_keys = data.keys()
-    for item in object_keys:
-        if item == 'S1metadata/donor':
-            print('Found It::::: {}', str(item).replace('/', '_'))
-
-        if '/' in str(item):
-            new_name = str(item).replace('/', '_')
-            data[new_name] = data[item]
-            del data[item]
-        else:
-            pass
-    return data
-
-
-def clean_columns(row):
+def clean_form_data_columns(row):
+    """
+    rename columns to conform to Metabase expectations
+    :param row: data coming from ONA API
+    :return: new data object
+    """
     new_object = {
         'ona_id': row['_id'] if '_id' in row else '',
         'uuid': row['_uuid'] if '_uuid' in row else '',
@@ -123,16 +129,23 @@ def clean_columns(row):
     return new_object
 
 
-def insert_formdata(**context):
+def save_ona_data_to_mongo_db(**context):
     ti = context['ti']
-    data = ti.xcom_pull(task_ids='Get_formdata')
-    client = MongoClient('mongodb://hikayaOna:Hikaya1244@167.71.38.240:27017/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource=ict_capacity&authMechanism=SCRAM-SHA-256&3t.uriVersion=3&3t.connection.name=ICT+Capacity')
-    Hikaya = client['ict_capacity']
-    collection = Hikaya[data['project_name']]
+    data = ti.xcom_pull(task_ids='Get_ONA_form_data')
+    client = MongoClient(
+        'mongodb://{}:{}@{}:{}/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource='
+        'ict_capacity&authMechanism=SCRAM-SHA-256&3t.uriVersion=3&3t.connection.name=ICT+Capacity'.format(
+            MONGO_DB_USER,
+            MONGO_DB_PASSWORD,
+            MONGO_DB_HOST,
+            MONGO_DB_PORT
+        ))
+    db_client = client['ict_capacity']
+    collection = db_client[data['project_name']]
     logging.info('Data Size {} end'.format(len(data['data'])))
 
     for em in data['data']:
-        formatted_data = clean_columns(em)
+        formatted_data = clean_form_data_columns(em)
         '''
         use find_one_and_update with upsert=True
         to update if the submission already exists
@@ -144,25 +157,27 @@ def insert_formdata(**context):
         )
 
 
-get_projects_from_api_task= PythonOperator(
-    task_id='Get_projects_from_API',
+# tasks
+get_ONA_projects_from_api_task = PythonOperator(
+    task_id='Get_ONA_projects_from_API',
     provide_context=True,
-    python_callable=invoke_http,
+    python_callable=get_ona_projects,
     dag=dag,
 )
 
-get_formdata_task= PythonOperator(
-    task_id='Get_formdata',
+
+get_ona_form_data_task = PythonOperator(
+    task_id='Get_ONA_form_data',
     provide_context=True,
-    python_callable=get_formdata,
+    python_callable=get_ona_form_data,
     dag=dag,
 )
 
-insert_formdata_task= PythonOperator(
-    task_id='Insert_formsdata',
+save_ONA_data_db_task = PythonOperator(
+    task_id='Save_ONA_data_to_mongo_db',
     provide_context=True,
-    python_callable=insert_formdata,
+    python_callable=save_ona_data_to_mongo_db,
     dag=dag,
 )
 
-get_projects_from_api_task>>get_formdata_task>>insert_formdata_task
+get_ONA_projects_from_api_task>>get_ona_form_data_task>>save_ONA_data_db_task
