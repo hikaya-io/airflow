@@ -32,7 +32,7 @@ dag = DAG('pull_data_from_ona', default_args=default_args)
 
 def get_ona_projects(**kwargs):
     """
-    load one projects from ONA API
+    load ONA projects from ONA API
     """
     response = requests.get(
         '{}/projects'.format(ONA_API_URL),
