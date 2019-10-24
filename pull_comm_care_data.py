@@ -28,3 +28,67 @@ ONA_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
 ONA_TOKEN = Variable.get('COMM_CARE_TOKEN', default_var='')
 
 dag = DAG('pull_data_from_comm_care', default_args=default_args)
+
+
+# UTILITY METHODS
+def clean_data_entries(entry):
+    """
+    clean data before saving to database
+    :param entry: single submission
+    :return cleaned_date:
+    """
+    pass
+
+
+# MAIN TASKS METHODS
+def get_comm_care_forms(**kwargs):
+    """
+    load CommCare forms
+    :param kwargs:
+    :return forms: dictionary list of forms
+    """
+    pass
+
+
+def get_comm_care_form_data(**context):
+    """
+    load individual form data
+    :param context:
+    :return data: form submissions
+    """
+    pass
+
+
+def save_comm_care_data_to_mongo_db(**context):
+    """
+    save form data to MongoDB
+    :param context:
+    :return:
+    """
+    pass
+
+
+# TASKS
+pull_comm_care_forms_task = PythonOperator(
+    task_id='Pull_Comm_Care_Form_List',
+    provide_context=True,
+    python_callable=get_comm_care_forms,
+    dag=dag,
+)
+
+pull_comm_care_form_data_task = PythonOperator(
+    task_id='Pull_Comm_Care_Form_Data',
+    provide_context=True,
+    python_callable=get_comm_care_form_data,
+    dag=dag,
+)
+
+save_comm_care_data_to_db_task = PythonOperator(
+    task_id='Save_Comm_Care_Data_to_DB',
+    provide_context=True,
+    python_callable=save_comm_care_data_to_mongo_db,
+    dag=dag,
+)
+
+# PIPELINE (WORKFLOW)
+pull_comm_care_forms_task>>pull_comm_care_form_data_task>>save_comm_care_data_to_db_task
