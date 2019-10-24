@@ -140,8 +140,8 @@ def save_ona_data_to_mongo_db(**context):
             MONGO_DB_HOST,
             MONGO_DB_PORT
         ))
-    db_client = client['ict_capacity']
-    collection = db_client[data['project_name']]
+    db_connection = client['ict_capacity']
+    collection = db_connection[data['project_name']]
     logging.info('Data Size {} end'.format(len(data['data'])))
 
     for em in data['data']:

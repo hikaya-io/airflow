@@ -24,13 +24,36 @@ MONGO_DB_USER = Variable.get('MONGO_DB_USER', default_var='')
 MONGO_DB_PASSWORD = Variable.get('MONGO_DB_PASSWORD', default_var='')
 MONGO_DB_HOST = Variable.get('MONGO_DB_HOST', default_var='127.0.0.1')
 MONGO_DB_PORT = Variable.get('MONGO_DB_PORT', default_var=27017)
-ONA_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
-ONA_TOKEN = Variable.get('COMM_CARE_TOKEN', default_var='')
+COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
+COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
+AUTH_SOURCE = Variable.get('AUTH_SOURCE', default_var='')
+CONNECTION_NAME = Variable.get('CONNECTION_NAME', default_var='')
 
 dag = DAG('pull_data_from_comm_care', default_args=default_args)
 
 
 # UTILITY METHODS
+def establish_db_connection(db_name):
+    """
+    establish MongoDB connection
+    :return db_connection: database connection
+    """
+    client = MongoClient(
+        'mongodb://{}:{}@{}:{}/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource='
+        '{}&authMechanism=SCRAM-SHA-256&3t.uriVersion=3&3t.connection.name={}'
+        .format(
+            MONGO_DB_USER,
+            MONGO_DB_PASSWORD,
+            MONGO_DB_HOST,
+            MONGO_DB_PORT,
+            AUTH_SOURCE,
+            CONNECTION_NAME
+        )
+    )
+    db_connection = client[db_name]
+    return db_connection
+
+
 def clean_data_entries(entry):
     """
     clean data before saving to database
