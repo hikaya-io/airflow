@@ -28,8 +28,10 @@ MONGO_DB_HOST = Variable.get('MONGO_DB_HOST', default_var='127.0.0.1')
 MONGO_DB_PORT = Variable.get('MONGO_DB_PORT', default_var=27017)
 COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
 COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
+COMM_CARE_API_USERNAME = Variable.get('COMM_CARE_API_USERNAME', default_var='')
 COMM_CARE_MONGO_AUTH_SOURCE = Variable.get('AUTH_SOURCE', default_var='')
-COMM_CARE_MONGO_CONNECTION_NAME = Variable.get('CONNECTION_NAME', default_var='')
+COMM_CARE_MONGO_CONNECTION_NAME = Variable.get(
+    'CONNECTION_NAME', default_var='')
 
 dag = DAG('pull_data_from_comm_care', default_args=default_args)
 
@@ -42,8 +44,7 @@ def establish_db_connection(db_name):
     """
     client = MongoClient(
         'mongodb://{}:{}@{}:{}/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource='
-        '{}&authMechanism=SCRAM-SHA-256&3t.uriVersion=3&3t.connection.name={}'
-        .format(
+        '{}&authMechanism=SCRAM-SHA-256&3t.uriVersion=3&3t.connection.name={}'.format(
             MONGO_DB_USER,
             MONGO_DB_PASSWORD,
             MONGO_DB_HOST,
@@ -52,6 +53,7 @@ def establish_db_connection(db_name):
             COMM_CARE_MONGO_CONNECTION_NAME
         )
     )
+
     db_connection = client[db_name]
     return db_connection
 
@@ -102,14 +104,15 @@ pull_comm_care_forms_task = PythonOperator(
 )
 
 get_forms = SimpleHttpOperator(
-        task_id='get_comm_care_forms',
-        method='GET',
-        endpoint='{}/forms'.format(COMM_CARE_API_URL),
-        http_conn_id='http_default',
-        trigger_rule='all_done',
-        xcom_push=True,
-        dag=dag,
-    )
+    task_id='get_comm_care_forms',
+    method='GET',
+    endpoint='https://www.commcarehq.org/a/lwf-uganda/api/v0.5/form/',
+    trigger_rule='all_done',
+    headers={'Authorization': 'ApiKey {}:{}'.format(
+        COMM_CARE_API_USERNAME, COMM_CARE_API_KEY)},
+    xcom_push=True,
+    dag=dag,
+)
 pull_comm_care_form_data_task = PythonOperator(
     task_id='Pull_Comm_Care_Form_Data',
     provide_context=True,
@@ -125,4 +128,4 @@ save_comm_care_data_to_db_task = PythonOperator(
 )
 
 # PIPELINE (WORKFLOW)
-pull_comm_care_forms_task>>pull_comm_care_form_data_task>>save_comm_care_data_to_db_task
+get_forms>>pull_comm_care_form_data_task>>save_comm_care_data_to_db_task
