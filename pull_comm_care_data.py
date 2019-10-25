@@ -30,8 +30,7 @@ COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
 COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
 COMM_CARE_API_USERNAME = Variable.get('COMM_CARE_API_USERNAME', default_var='')
 COMM_CARE_MONGO_AUTH_SOURCE = Variable.get('AUTH_SOURCE', default_var='')
-COMM_CARE_MONGO_CONNECTION_NAME = Variable.get(
-    'CONNECTION_NAME', default_var='')
+COMM_CARE_MONGO_CONNECTION_NAME = Variable.get('CONNECTION_NAME', default_var='')
 
 dag = DAG('pull_data_from_comm_care', default_args=default_args)
 
@@ -68,15 +67,6 @@ def clean_data_entries(entry):
 
 
 # MAIN TASKS METHODS
-def get_comm_care_forms(**kwargs):
-    """
-    load CommCare forms
-    :param kwargs:
-    :return forms: dictionary list of forms
-    """
-    pass
-
-
 def get_comm_care_form_data(**context):
     """
     load individual form data
@@ -96,23 +86,19 @@ def save_comm_care_data_to_mongo_db(**context):
 
 
 # TASKS
-pull_comm_care_forms_task = PythonOperator(
-    task_id='Pull_Comm_Care_Form_List',
-    provide_context=True,
-    python_callable=get_comm_care_forms,
-    dag=dag,
-)
 
-get_forms = SimpleHttpOperator(
+pull_comm_care_forms_task = SimpleHttpOperator(
     task_id='get_comm_care_forms',
     method='GET',
-    endpoint='https://www.commcarehq.org/a/lwf-uganda/api/v0.5/form/',
+    endpoint='',
     trigger_rule='all_done',
+    http_con_id='comm_care_base_url',
     headers={'Authorization': 'ApiKey {}:{}'.format(
         COMM_CARE_API_USERNAME, COMM_CARE_API_KEY)},
     xcom_push=True,
     dag=dag,
 )
+
 pull_comm_care_form_data_task = PythonOperator(
     task_id='Pull_Comm_Care_Form_Data',
     provide_context=True,
@@ -128,4 +114,4 @@ save_comm_care_data_to_db_task = PythonOperator(
 )
 
 # PIPELINE (WORKFLOW)
-get_forms>>pull_comm_care_form_data_task>>save_comm_care_data_to_db_task
+pull_comm_care_forms_task>>pull_comm_care_form_data_task>>save_comm_care_data_to_db_task
