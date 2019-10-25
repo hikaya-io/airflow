@@ -1,5 +1,7 @@
 from airflow import DAG
-from airflow.operators import BashOperator, PythonOperator
+from airflow.operators import (
+    SimpleHttpOperator, PythonOperator
+)
 from datetime import datetime, timedelta
 import requests
 import logging
@@ -26,8 +28,8 @@ MONGO_DB_HOST = Variable.get('MONGO_DB_HOST', default_var='127.0.0.1')
 MONGO_DB_PORT = Variable.get('MONGO_DB_PORT', default_var=27017)
 COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
 COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
-AUTH_SOURCE = Variable.get('AUTH_SOURCE', default_var='')
-CONNECTION_NAME = Variable.get('CONNECTION_NAME', default_var='')
+COMM_CARE_MONGO_AUTH_SOURCE = Variable.get('AUTH_SOURCE', default_var='')
+COMM_CARE_MONGO_CONNECTION_NAME = Variable.get('CONNECTION_NAME', default_var='')
 
 dag = DAG('pull_data_from_comm_care', default_args=default_args)
 
@@ -46,8 +48,8 @@ def establish_db_connection(db_name):
             MONGO_DB_PASSWORD,
             MONGO_DB_HOST,
             MONGO_DB_PORT,
-            AUTH_SOURCE,
-            CONNECTION_NAME
+            COMM_CARE_MONGO_AUTH_SOURCE,
+            COMM_CARE_MONGO_CONNECTION_NAME
         )
     )
     db_connection = client[db_name]
@@ -99,6 +101,15 @@ pull_comm_care_forms_task = PythonOperator(
     dag=dag,
 )
 
+get_forms = SimpleHttpOperator(
+        task_id='get_comm_care_forms',
+        method='GET',
+        endpoint='{}/forms'.format(COMM_CARE_API_URL),
+        http_conn_id='http_default',
+        trigger_rule='all_done',
+        xcom_push=True,
+        dag=dag,
+    )
 pull_comm_care_form_data_task = PythonOperator(
     task_id='Pull_Comm_Care_Form_Data',
     provide_context=True,

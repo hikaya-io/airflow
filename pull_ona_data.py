@@ -26,6 +26,9 @@ MONGO_DB_HOST = Variable.get('MONGO_DB_HOST', default_var='127.0.0.1')
 MONGO_DB_PORT = Variable.get('MONGO_DB_PORT', default_var=27017)
 ONA_API_URL = Variable.get('ONA_API_URL', default_var='https://api.ona.io/api/v1/')
 ONA_TOKEN = Variable.get('ONA_TOKEN', default_var='')
+ONA_MONGO_AUTH_SOURCE = Variable.get('ONA_MONGO_AUTH_SOURCE', '')
+ONA_MONGO_CONNECTION_NAME = Variable.get('ONA_MONGO_CONNECTION_NAME', '')
+
 
 dag = DAG('pull_data_from_ona', default_args=default_args)
 
@@ -130,15 +133,22 @@ def clean_form_data_columns(row):
 
 
 def save_ona_data_to_mongo_db(**context):
+    """
+    save data to MongoDB
+    :param context:
+    :return:
+    """
     ti = context['ti']
     data = ti.xcom_pull(task_ids='Get_ONA_form_data')
     client = MongoClient(
         'mongodb://{}:{}@{}:{}/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource='
-        'ict_capacity&authMechanism=SCRAM-SHA-256&3t.uriVersion=3&3t.connection.name=ICT+Capacity'.format(
+        '{}&authMechanism=SCRAM-SHA-256&3t.uriVersion=3&3t.connection.name={}'.format(
             MONGO_DB_USER,
             MONGO_DB_PASSWORD,
             MONGO_DB_HOST,
-            MONGO_DB_PORT
+            MONGO_DB_PORT,
+            ONA_MONGO_AUTH_SOURCE,
+            ONA_MONGO_CONNECTION_NAME
         ))
     db_connection = client['ict_capacity']
     collection = db_connection[data['project_name']]
@@ -157,7 +167,16 @@ def save_ona_data_to_mongo_db(**context):
         )
 
 
-# tasks
+def delete_submissions_on_db(**context):
+    """
+    delete submissions that nolonger exist on API
+    :param context:
+    :return:
+    """
+    pass
+
+
+# TASKS
 get_ONA_projects_from_api_task = PythonOperator(
     task_id='Get_ONA_projects_from_API',
     provide_context=True,
