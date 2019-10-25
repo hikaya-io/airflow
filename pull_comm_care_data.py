@@ -73,7 +73,9 @@ def get_comm_care_form_data(**context):
     :param context:
     :return data: form submissions
     """
-    pass
+    ti = context['ti']
+    form_list = ti.xcom_pull(task_ids='Get_Comm_Care_Forms')
+    print(form_list)
 
 
 def save_comm_care_data_to_mongo_db(**context):
@@ -88,14 +90,14 @@ def save_comm_care_data_to_mongo_db(**context):
 # TASKS
 
 pull_comm_care_forms_task = SimpleHttpOperator(
-    task_id='get_comm_care_forms',
+    task_id='Get_Comm_Care_Forms',
     method='GET',
     endpoint='',
-    trigger_rule='all_done',
-    http_con_id='comm_care_base_url',
-    headers={'Authorization': 'ApiKey {}:{}'.format(
+    http_conn_id='comm_care_base_url',
+    headers={"Content-Type":"application/json", "Authorization": "ApiKey {}:{}".format(
         COMM_CARE_API_USERNAME, COMM_CARE_API_KEY)},
     xcom_push=True,
+    log_response=True,
     dag=dag,
 )
 
