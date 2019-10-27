@@ -1,14 +1,15 @@
 from airflow import DAG
-from airflow.operators import (
-    SimpleHttpOperator, PythonOperator
-)
+from airflow.operators.http_operator import SimpleHttpOperator
+from airflow.operators.python_operator import PythonOperator
+from airflow.models.variable import Variable
+
 from datetime import datetime, timedelta
+from pymongo import MongoClient
+
 import requests
 import logging
-from pymongo import MongoClient
 import json
 
-from airflow.models import Variable
 
 default_args = {
     'owner': 'Hikaya',
