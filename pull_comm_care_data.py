@@ -65,18 +65,17 @@ def clean_form_list(forms):
     :return clean forms:
     """
     clean_forms = []
-    for form in forms:
-        form = dict(form)
+    for item in forms:
+        form = item['form']
         new_form_object = {
-            'id': form['id'],
             'name': form['@name'],
             'data_url': form['@xmlns'],
             'enumerator': form['data_collector']['enumerator'],
-            'enumerator_role': form['data_collector']['jb_title'],
+            'enumerator_role': form['data_collector']['job_title'],
             'distribution_date': form['distribution_date'],
             'district': form['district'],
             'cash_amount':form['participant_group']['cash_amount'],
-            'distribution_type': form['participant_group']['distribution_type'],
+            'dist_type': form['participant_group']['dist_type'],
             'item_amount': form['participant_group']['item_amount'],
             'settlement': form['settlement'],
         }
@@ -103,9 +102,9 @@ def get_comm_care_form_data(**context):
     :return data: form submissions
     """
     ti = context['ti']
-    forms_response_data = json.loads(json.dumps(ti.xcom_pull(task_ids='Get_Comm_Care_Forms')))
+    forms_response_data = json.loads(ti.xcom_pull(task_ids='Get_Comm_Care_Forms'))
     print(forms_response_data)
-    form_list = clean_form_list(forms_response_data.objects)
+    form_list = clean_form_list(forms_response_data['objects'])
     print(form_list)
 
 
@@ -123,7 +122,7 @@ def save_comm_care_data_to_mongo_db(**context):
 pull_comm_care_forms_task = SimpleHttpOperator(
     task_id='Get_Comm_Care_Forms',
     method='GET',
-    endpoint='',
+    endpoint='form/',
     http_conn_id='comm_care_base_url',
     headers={"Content-Type":"application/json", "Authorization": "ApiKey {}:{}".format(
         COMM_CARE_API_USERNAME, COMM_CARE_API_KEY)},
