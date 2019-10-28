@@ -5,6 +5,7 @@ from airflow.models.variable import Variable
 
 from datetime import datetime, timedelta
 from pymongo import MongoClient
+from pandas.io.json._normalize import nested_to_record
 
 import requests
 import logging
@@ -24,15 +25,11 @@ default_args = {
 }
 
 # get all the variables
-MONGO_DB_USER = Variable.get('MONGO_DB_USER', default_var='')
-MONGO_DB_PASSWORD = Variable.get('MONGO_DB_PASSWORD', default_var='')
-MONGO_DB_HOST = Variable.get('MONGO_DB_HOST', default_var='127.0.0.1')
-MONGO_DB_PORT = Variable.get('MONGO_DB_PORT', default_var=27017)
+MONGO_DB_URI = Variable.get('MONGO_DB_URI', default_var='')
+MONGO_DB_NAME = Variable.get('MONGO_DB_NAME', default_var='')
 COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
 COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
 COMM_CARE_API_USERNAME = Variable.get('COMM_CARE_API_USERNAME', default_var='')
-COMM_CARE_MONGO_AUTH_SOURCE = Variable.get('AUTH_SOURCE', default_var='')
-COMM_CARE_MONGO_CONNECTION_NAME = Variable.get('CONNECTION_NAME', default_var='')
 
 dag = DAG('pull_data_from_comm_care', default_args=default_args)
 
@@ -43,17 +40,7 @@ def establish_db_connection(db_name):
     establish MongoDB connection
     :return db_connection: database connection
     """
-    client = MongoClient(
-        'mongodb://{}:{}@{}:{}/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource='
-        '{}&authMechanism=SCRAM-SHA-256&3t.uriVersion=3&3t.connection.name={}'.format(
-            MONGO_DB_USER,
-            MONGO_DB_PASSWORD,
-            MONGO_DB_HOST,
-            MONGO_DB_PORT,
-            COMM_CARE_MONGO_AUTH_SOURCE,
-            COMM_CARE_MONGO_CONNECTION_NAME
-        )
-    )
+    client = MongoClient(MONGO_DB_URI)
 
     db_connection = client[db_name]
     return db_connection
@@ -86,13 +73,60 @@ def clean_form_list(forms):
     return clean_forms
 
 
-def clean_data_entries(entry):
+def flatten_json_data(data):
     """
-    clean data before saving to database
+    flatten CommCare data (remove the json nesting)
+    :param data: array of form submissions from
+    :return clean:
+    """
+    flat_json_data = []
+
+    field_list = None
+
+    for data_item in data:
+        # use pandas 'nested_to_record' method to flatten json
+        # separate levels with '_'
+        flat_data_item = nested_to_record(data_item, sep='_')
+
+        # clean the object keys
+        clean_data_item = clean_object_keys(flat_data_item)
+
+        # remove unwanted fields
+        if field_list is not None:
+            clean_data_item = clean_data_entries(clean_data_item, field_list)
+
+        flat_json_data.append(clean_data_item)
+
+    return flat_json_data
+
+
+def clean_object_keys(clean_data_item):
+    """
+    clean object keys to remove illegal key characters for mongoDB
+    :param clean_data_item:
+    :return clean_data_item:
+    """
+    # use list for mutability
+    for key, value in list(clean_data_item.items()):
+        if '.' in key or '$' in key or '/' in key:
+            new_key = key.replace('.', '_').replace('$', '_').replace('/', '_')
+            clean_data_item[new_key] = value
+            del clean_data_item[key]
+    return clean_data_item
+
+
+def clean_data_entries(entry, field_list=None):
+    """
+    keep only the wanted fields
     :param entry: single submission
-    :return cleaned_date:
+    :param field_list: wanted field-list
+    :return entry: entry dict with required fields only
     """
-    pass
+    for key, value in list(entry.items()):
+        if key not in field_list:
+            # delete field if not in field-list
+            del entry[key]
+    return entry
 
 
 # MAIN TASKS METHODS
