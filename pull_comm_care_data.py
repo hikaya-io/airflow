@@ -30,8 +30,13 @@ MONGO_DB_NAME = Variable.get('MONGO_DB_NAME', default_var='')
 COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
 COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
 COMM_CARE_API_USERNAME = Variable.get('COMM_CARE_API_USERNAME', default_var='')
+COMM_CARE_PROGRAM_ID = Variable.get('COMM_CARE_PROGRAM_ID', default_var='')
 
 dag = DAG('pull_data_from_comm_care', default_args=default_args)
+
+# set request headers and re-use
+request_headers = {"Authorization": "ApiKey {}:{}".format(
+    COMM_CARE_API_USERNAME, COMM_CARE_API_KEY)}
 
 
 # UTILITY METHODS
@@ -129,56 +134,88 @@ def clean_data_entries(entry, field_list=None):
     return entry
 
 
-# MAIN TASKS METHODS
-def get_comm_care_form_data(**context):
+def save_data_to_mongo_db(clean_data, form_name):
     """
-    load individual form data
-    :param context:
-    :return data: form submissions
-    """
-    ti = context['ti']
-    forms_response_data = json.loads(ti.xcom_pull(task_ids='Get_Comm_Care_Forms'))
-    print(forms_response_data)
-    form_list = clean_form_list(forms_response_data['objects'])
-    print(form_list)
-
-
-def save_comm_care_data_to_mongo_db(**context):
-    """
-    save form data to MongoDB
-    :param context:
+    save data to MongoDB
+    :param clean_data:
+    :param form_name:
     :return:
     """
-    pass
+    connection = establish_db_connection('uganda_country_program')
+    document_collection = connection[form_name]
+
+    document_collection.insert_many(clean_data)
+
+
+# MAIN TASKS METHODS
+def get_application_module_forms(**context):
+    """
+    extract the required information from applications response list
+    :return clean forms:
+    """
+    application = json.loads(context['ti'].xcom_pull(
+        task_ids="Get_Comm_Care_Application"))
+
+    forms = []
+
+    for app_module in application['modules']:
+        for module_form in app_module['forms']:
+            form = {
+                'id': module_form['unique_id'],
+                'xmlns': module_form['xmlns'],
+                'name': module_form['name']['en']
+            }
+
+            forms.append(form)
+
+    return forms
+
+
+def get_forms_data(**context):
+    forms = context['ti'].xcom_pull(task_ids='Extract_Forms')
+
+    for form in forms:
+        response = requests.get(
+            '{}/form?xmlns={}&limit=20'.format(COMM_CARE_API_URL, form['xmlns']), headers=request_headers)
+
+        form_data = response.json()
+
+        actual_data = flatten_json_data(form_data['objects'])
+        save_data_to_mongo_db(actual_data, form['name'])
+
+        while form_data['meta']['next'] is not None:
+            response = requests.get(
+                '{}/form{}'.format(COMM_CARE_API_URL, form_data['meta']['next']), headers=request_headers)
+            form_data = response.json()
+            actual_data = flatten_json_data(form_data['objects'])
+            save_data_to_mongo_db(actual_data, form['name'])
 
 
 # TASKS
-
-pull_comm_care_forms_task = SimpleHttpOperator(
-    task_id='Get_Comm_Care_Forms',
+get_comm_care_application_task = SimpleHttpOperator(
+    task_id='Get_Comm_Care_Application',
     method='GET',
-    endpoint='form/',
+    endpoint='/application/{}'.format(COMM_CARE_PROGRAM_ID),
     http_conn_id='comm_care_base_url',
-    headers={"Content-Type":"application/json", "Authorization": "ApiKey {}:{}".format(
-        COMM_CARE_API_USERNAME, COMM_CARE_API_KEY)},
+    headers=request_headers,
     xcom_push=True,
     log_response=True,
     dag=dag,
 )
 
-pull_comm_care_form_data_task = PythonOperator(
-    task_id='Pull_Comm_Care_Form_Data',
+extract_forms_task = PythonOperator(
+    task_id="Extract_Forms",
+    python_callable=get_application_module_forms,
     provide_context=True,
-    python_callable=get_comm_care_form_data,
     dag=dag,
 )
 
-save_comm_care_data_to_db_task = PythonOperator(
-    task_id='Save_Comm_Care_Data_to_DB',
+fetch_forms_data_task = PythonOperator(
+    task_id="Fetch_Forms_Data",
+    python_callable=get_forms_data,
     provide_context=True,
-    python_callable=save_comm_care_data_to_mongo_db,
     dag=dag,
 )
 
-# PIPELINE (WORKFLOW)
-pull_comm_care_forms_task>>pull_comm_care_form_data_task>>save_comm_care_data_to_db_task
+# PIPELINE
+get_comm_care_application_task >> extract_forms_task >> fetch_forms_data_task
