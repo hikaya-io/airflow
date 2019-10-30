@@ -14,11 +14,12 @@ import json
 default_args = {
     'owner': 'Hikaya',
     'depends_on_past': False,
-    'start_date': datetime(2019, 10, 21),
+    'start_date': datetime(2019, 10, 31),
     'email': ['odenypeter@gmail.com'],
     'email_on_failure': False,
     'email_on_retry': False,
     'catchup_by_default': False,
+    'schedule_interval': timedelta(hours=4),
     'retries': 1,
     'retry_delay': timedelta(minutes=1),
 }
