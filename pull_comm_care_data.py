@@ -4,11 +4,10 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.models.variable import Variable
 
 from datetime import datetime, timedelta
-from pymongo import MongoClient
+from pymongo import (MongoClient, UpdateOne)
 from pandas.io.json._normalize import nested_to_record
 
 import requests
-import logging
 import json
 
 
@@ -25,8 +24,8 @@ default_args = {
 }
 
 # get all the variables
-MONGO_DB_URI = Variable.get('MONGO_DB_URI', default_var='')
-MONGO_DB_NAME = Variable.get('MONGO_DB_NAME', default_var='')
+COMM_CARE_MONGO_DB_URI = Variable.get('COMM_CARE_MONGO_DB_URI', default_var='')
+COMM_CARE_MONGO_DB_NAME = Variable.get('MONGO_DB_NAME', default_var='')
 COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
 COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
 COMM_CARE_API_USERNAME = Variable.get('COMM_CARE_API_USERNAME', default_var='')
@@ -45,7 +44,7 @@ def establish_db_connection(db_name):
     establish MongoDB connection
     :return db_connection: database connection
     """
-    client = MongoClient(MONGO_DB_URI)
+    client = MongoClient(COMM_CARE_MONGO_DB_URI)
 
     db_connection = client[db_name]
     return db_connection
@@ -91,7 +90,7 @@ def flatten_json_data(data):
     for data_item in data:
         # use pandas 'nested_to_record' method to flatten json
         # separate levels with '_'
-        flat_data_item = nested_to_record(data_item, sep='_')
+        flat_data_item = nested_to_record(data_item['form'], sep='_')
 
         # clean the object keys
         clean_data_item = clean_object_keys(flat_data_item)
@@ -112,11 +111,20 @@ def clean_object_keys(clean_data_item):
     :return clean_data_item:
     """
     # use list for mutability
+
     for key, value in list(clean_data_item.items()):
+        # remove illegal characters
         if '.' in key or '$' in key or '/' in key:
             new_key = key.replace('.', '_').replace('$', '_').replace('/', '_')
             clean_data_item[new_key] = value
             del clean_data_item[key]
+
+        # remove unwanted characters on the keys ['@', '#']
+        if '#' in key or '@' in key:
+            new_key = key.replace('#', '').replace('@', '')
+            clean_data_item[new_key] = value
+            del clean_data_item[key]
+
     return clean_data_item
 
 
@@ -144,7 +152,30 @@ def save_data_to_mongo_db(clean_data, form_name):
     connection = establish_db_connection('uganda_country_program')
     document_collection = connection[form_name]
 
-    document_collection.insert_many(clean_data)
+    # use bulk update MongoDB API to save the data
+    unique_ids = [item.pop('meta_instanceID') for item in clean_data]
+    operations = [
+        UpdateOne(
+            {'meta_instanceID': unique_id},
+            {'$set': data}, upsert=True) for unique_id, data in zip(unique_ids, clean_data)]
+    document_collection.bulk_write(operations)
+
+
+def remove_deleted_submissions_from_db(ids_from_api, form_name):
+    """
+    remove from db, those items that have been deleted upstream
+    :return:
+    """
+    db_connection = establish_db_connection('uganda_country_program')
+    collection = db_connection[form_name]
+
+    ids_in_db = collection.distinct('meta_instanceID')
+    deleted_ids = list(set(ids_in_db) - set(ids_from_api))
+
+    print('Delete Data IDs::::', ids_in_db)
+    print('Data from API::::', ids_from_api)
+
+    collection.delete_many({'meta_instanceID': {'$in': deleted_ids}})
 
 
 # MAIN TASKS METHODS
@@ -172,23 +203,70 @@ def get_application_module_forms(**context):
 
 
 def get_forms_data(**context):
+    """
+    get forms data
+    :param context:
+    :return:
+    """
     forms = context['ti'].xcom_pull(task_ids='Extract_Forms')
 
     for form in forms:
-        response = requests.get(
-            '{}/form?xmlns={}&limit=20'.format(COMM_CARE_API_URL, form['xmlns']), headers=request_headers)
-
-        form_data = response.json()
-
-        actual_data = flatten_json_data(form_data['objects'])
-        save_data_to_mongo_db(actual_data, form['name'])
-
-        while form_data['meta']['next'] is not None:
+        response = None
+        try:
             response = requests.get(
-                '{}/form{}'.format(COMM_CARE_API_URL, form_data['meta']['next']), headers=request_headers)
+                '{}/form?xmlns={}&limit=1000'.format(COMM_CARE_API_URL, form['xmlns']), headers=request_headers)
+        except requests.Timeout:
+            pass
+
+        if response is not None:
             form_data = response.json()
+
             actual_data = flatten_json_data(form_data['objects'])
             save_data_to_mongo_db(actual_data, form['name'])
+
+            while form_data['meta']['next'] is not None:
+                response = requests.get(
+                    '{}/form{}'.format(COMM_CARE_API_URL, form_data['meta']['next']), headers=request_headers)
+                form_data = response.json()
+                actual_data = flatten_json_data(form_data['objects'])
+                save_data_to_mongo_db(actual_data, form['name'])
+
+
+def clean_stale_data_on_db(**context):
+    """
+    Reemove stale data from db
+    :return:
+    """
+    forms = context['ti'].xcom_pull(task_ids='Extract_Forms')
+
+    for form in forms:
+        response = None
+        try:
+            response = requests.get(
+                '{}/form?xmlns={}&limit=1000'.format(COMM_CARE_API_URL, form['xmlns']),
+                headers=request_headers)
+        except requests.Timeout:
+            pass
+
+        if response is not None:
+            form_data = response.json()
+
+            actual_data = flatten_json_data(form_data['objects'])
+
+            instance_ids = [item.pop('meta_instanceID') for item in actual_data]
+
+            while form_data['meta']['next'] is not None:
+                response = requests.get(
+                    '{}/form{}'.format(COMM_CARE_API_URL, form_data['meta']['next']),
+                    headers=request_headers)
+                form_data = response.json()
+                actual_data = flatten_json_data(form_data['objects'])
+
+                more_ids = [item.pop('meta_instanceID') for item in actual_data]
+                new_list = list(set(instance_ids + more_ids))
+                instance_ids = new_list
+
+            remove_deleted_submissions_from_db(instance_ids, form['name'])
 
 
 # TASKS
@@ -217,5 +295,13 @@ fetch_forms_data_task = PythonOperator(
     dag=dag,
 )
 
-# PIPELINE
+delete_stale_data_task = PythonOperator(
+    task_id='Delete_Stale_Data',
+    python_callable=clean_stale_data_on_db,
+    provide_context=True,
+    dag=dag,
+)
+
+# PIPELINES
 get_comm_care_application_task >> extract_forms_task >> fetch_forms_data_task
+extract_forms_task >> delete_stale_data_task
