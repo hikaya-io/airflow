@@ -148,7 +148,7 @@ def construct_postgres_delete_query(table, column, values):
     :return query: the DELETE query string
     """
     query = 'DELETE FROM {}'.format(table) + 'WHERE ' + \
-            column + 'IN (' + ', '.joint(values) + ')'
+            column + ' IN (' + ', '.joint(values) + ')'
 
     return query
 
@@ -177,5 +177,14 @@ def construct_mongo_upsert_query(data, target_column):
     return operations
 
 
-
-def construct_mongo_delete_query(data, collection):
+# def construct_mongo_delete_query(api_data_ids, db_data_ids, collection):
+#     """
+#     DELETE data that no-longer exist on the API
+#     :param api_data_ids: IDs of data from the API
+#     :param db_data_ids:  IDs of data in the db
+#     :param collection: the collection name
+#     :return:
+#     """
+#     deleted_ids = list(set(db_data_ids) - set(api_data_ids))
+#
+#     collection.delete_many({'meta_instanceID': {'$in': deleted_ids}})
