@@ -173,9 +173,6 @@ def remove_deleted_submissions_from_db(ids_from_api, form_name):
     ids_in_db = collection.distinct('meta_instanceID')
     deleted_ids = list(set(ids_in_db) - set(ids_from_api))
 
-    print('Delete Data IDs::::', ids_in_db)
-    print('Data from API::::', ids_from_api)
-
     collection.delete_many({'meta_instanceID': {'$in': deleted_ids}})
 
 
