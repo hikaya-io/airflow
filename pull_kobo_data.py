@@ -20,8 +20,8 @@ default_args = {
 }
 
 # get all the Kobo variables
-KOBO_API_URL = Variable.get('ONA_API_URL', default_var='')
-KOBO_TOKEN = Variable.get('ONA_TOKEN', default_var='')
+KOBO_API_URL = Variable.get('KOBO_API_URL', default_var='')
+KOBO_TOKEN = Variable.get('KOBO_TOKEN', default_var='')
 
 # declare the dags
 dag = DAG('pull_data_from_kobo', default_args=default_args)
@@ -48,11 +48,11 @@ def get_kobo_form_data(**context):
     json = ti.xcom_pull(task_ids='Get_Kobo_projects_from_API')
 
     for el in json:
-        survey_form = list(
-            filter(lambda x: str(x.get('formid')) == '447910', el.get('forms'))
+        form = list(
+            filter(lambda x: str(x.get('formid')) == '[form_id]', el.get('forms'))
         )
-        if survey_form:
-            url = "{}data/{}".format(KOBO_API_URL, survey_form[0].get('formid'))
+        if form:
+            url = "{}data/{}".format(KOBO_API_URL, form[0].get('formid'))
             response = requests.get(url, headers={'Authorization': 'Token {}'.format(KOBO_TOKEN)})
             data = {'data': response.json(), 'project_name': el.get('name')}
     return data
