@@ -10,7 +10,7 @@ import requests
 default_args = {
     'owner': 'Hikaya',
     'depends_on_past': False,
-    'start_date': datetime(2020, 01, 15),
+    'start_date': datetime(2020, 1, 15),
     'email': ['odenypeter@gmail.com'],
     'email_on_failure': False,
     'email_on_retry': False,

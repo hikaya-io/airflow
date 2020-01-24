@@ -2,6 +2,10 @@ from pymongo import (MongoClient, UpdateOne,)
 import psycopg2
 from pandas.io.json._normalize import nested_to_record
 
+from .configs import (
+    POSTGRES_DB, POSTGRES_DB_PASSWORD, POSTGRES_USER,
+    POSTGRES_HOST, POSTGRES_PORT
+)
 
 ############################
 #  Database Connections    #
@@ -18,22 +22,17 @@ def establish_mongo_connection(mongo_uri, db_name):
     return db_connection
 
 
-def establish_postgres_connection(database, user, password, host, port):
+def establish_postgres_connection():
     """
     establish postgres connection
-    :param database: database name
-    :param user: database user
-    :param password: database user password
-    :param host: database host
-    :param port:  database port (int)
     :return connection: database connection
     """
     connection = psycopg2.connect(
-        database='{}'.format(database),
-        user='{}'.format(user),
-        password='{}'.format(password),
-        host='{}'.format(host),
-        port=port)
+        database='{}'.format(POSTGRES_DB),
+        user='{}'.format(POSTGRES_USER),
+        password='{}'.format(POSTGRES_DB_PASSWORD),
+        host='{}'.format(POSTGRES_HOST),
+        port=POSTGRES_PORT)
 
     return connection
 
@@ -125,16 +124,17 @@ def construct_postgres_upsert_query(table_name, columns, target_column):
     :param target_column: reference column for update
     :return full_upsert_query_string:  complete UPSERT query string
     """
-    insert_query_string = 'INSERT INTO TABLE ' + table_name + '(' + ','\
+    insert_query_string = 'INSERT INTO ' + table_name + '(' + ','\
         .join(columns) + ')'
     db_field_maps = ['%({})s'.format(item) for item in columns]
-    exclude_columns = ['EXCLUDE.{}'.format(column) for column in columns]
-    update_string = 'ON CONFLICT ({})'.format(target_column) +\
-                    'DO UPDATE SET (' + ', '.join(columns) + ') = (' + \
-                    ', '.join(exclude_columns) + ')'
+    # exclude_columns = ['EXCLUDE.{}'.format(column) for column in columns]
+    # update_string = 'ON CONFLICT ({})'.format(target_column) +\
+    #                 'DO UPDATE SET (' + ', '.join(columns) + ') = (' + \
+    #                 ', '.join(exclude_columns) + ')'
 
     full_upsert_query_string = insert_query_string + 'VALUES (' + ','.join(
-        db_field_maps) + ')' + update_string
+        db_field_maps) + ')'
+    # + update_string
 
     return full_upsert_query_string
 
@@ -148,9 +148,32 @@ def construct_postgres_delete_query(table, column, values):
     :return query: the DELETE query string
     """
     query = 'DELETE FROM {}'.format(table) + 'WHERE ' + \
-            column + ' IN (' + ', '.joint(values) + ')'
+            column + 'IN (' + ', '.joint(values) + ')'
 
     return query
+
+
+def construct_column_strings(column_data):
+    """
+    Set data column names and the data_types
+    : param column_data: column meta-data
+    : return column_string: Postgres query compatible string
+    """
+    print('COLUMN DATA:::::', column_data)
+    if column_data.get('type', None).lower() == 'int':
+        return column_data.get('name') + ' INT'
+
+    if column_data.get('type', None).lower() == 'decimal':
+        return column_data.get('name') + ' REAL'
+
+    if column_data.get('type', None).lower() == 'char':
+        return column_data.get('name') + ' CHAR(' + str(column_data.get('length', 100)) + ')'
+
+    if column_data.get('type', None).lower() == 'boolean':
+        return column_data.get('name') + ' BOOLEAN'
+
+    else:
+        return column_data.get('name') + ' TEXT'
 
 
 ############################
@@ -176,15 +199,3 @@ def construct_mongo_upsert_query(data, target_column):
 
     return operations
 
-
-# def construct_mongo_delete_query(api_data_ids, db_data_ids, collection):
-#     """
-#     DELETE data that no-longer exist on the API
-#     :param api_data_ids: IDs of data from the API
-#     :param db_data_ids:  IDs of data in the db
-#     :param collection: the collection name
-#     :return:
-#     """
-#     deleted_ids = list(set(db_data_ids) - set(api_data_ids))
-#
-#     collection.delete_many({'meta_instanceID': {'$in': deleted_ids}})
