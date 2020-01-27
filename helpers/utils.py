@@ -100,6 +100,56 @@ def flatten_json_data(data, separator='_'):
     return flat_json_data
 
 
+def update_row_columns(fields, data):
+    """
+    Set missing column values
+    :param fields: table fields
+    :param data: data to be dumped
+    :return data: updated data
+    """
+    columns = [item.get('name') for item in fields]
+    for row_data in list(data):
+        row_columns = row_data.keys()
+
+        missing_columns = list(set(columns) - set(row_columns))
+
+        if len(missing_columns) > 0:
+            for column in missing_columns:
+                field_obj = next(
+                    filter(
+                        lambda field: field.get('name') == column,
+                        fields
+                    )
+                )
+                row_data.setdefault(
+                    column,
+                    set_column_defaults(field_obj.get('type', None))
+                )
+    return data
+
+
+def set_column_defaults(type):
+    """
+    Set data column default values for missing columns
+    : param type: data type
+    : return column_string: Postgres query compatible string
+    """
+    if type.lower() == 'int':
+        return None
+
+    if type.lower() == 'decimal':
+        return None
+
+    if type.lower() == 'char':
+        return ''
+
+    if type.lower() == 'boolean':
+        return None
+
+    else:
+        return ''
+
+
 ############################
 #  Postgres Operations     #
 ############################
@@ -159,7 +209,6 @@ def construct_column_strings(column_data):
     : param column_data: column meta-data
     : return column_string: Postgres query compatible string
     """
-    print('COLUMN DATA:::::', column_data)
     if column_data.get('type', None).lower() == 'int':
         return column_data.get('name') + ' INT'
 

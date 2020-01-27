@@ -7,6 +7,7 @@ from datetime import (datetime, timedelta,)
 from helpers.utils import (
     construct_column_strings, construct_postgres_create_table_query,
     establish_postgres_connection, construct_postgres_upsert_query,
+    update_row_columns,
 )
 from helpers.configs import (
     SURV_SERVER_NAME, SURV_USERNAME, SURV_PASSWORD, SURV_FORMS,
@@ -61,9 +62,9 @@ def fetch_data(data_url, enc_key_file=None):
     return response_data
 
 
-def get_form_url(form_id):
+def get_form_url(form_id, last_date, status):
 
-    form_url = f'https://{SURV_SERVER_NAME}.surveycto.com/api/v2/forms/data/wide/json/{form_id}?date=Dec+11%2C+2019+5%3A50%3A11+AM'
+    form_url = f'https://{SURV_SERVER_NAME}.surveycto.com/api/v2/forms/data/wide/json/{form_id}?date={last_date}&r={status}'
     return form_url
 
 
@@ -72,7 +73,8 @@ def save_data_to_db(**kwargs):
     Depending on the specified DB save data
     :return:
     """
-
+    all_forms = len(SURV_FORMS)
+    success_forms = 0
     for form in SURV_FORMS:
         # get columns
         columns = [item.get('name') for item in form.get('fields')]
@@ -81,7 +83,11 @@ def save_data_to_db(**kwargs):
         if form.get('encrypted', False) is not  False:
 
             # Let's pull form records for the encrypted form
-            url = get_form_url(form.get('form_id', ''))
+            url = get_form_url(
+                form.get('form_id', ''),
+                form.get('last_date', 0),
+                '|'.join(form.get('statuses', ['approved', 'pending']))
+            )
             """
             With the encryption key, we expect to see all the fields included in the response.
             If we don't include the encryption key the API will only return the unencrypted fields.
@@ -94,10 +100,15 @@ def save_data_to_db(**kwargs):
             Pulling data for the unencrypted form will be the exact same except we don't
             provide a keyfile for the pull_data function
             """
-            url = get_form_url(form.get('form_id', ''))
+            url = get_form_url(
+                form.get('form_id', ''),
+                form.get('last_date', 0),
+                '|'.join(form.get('statuses', ['approved' ,'pending']))
+            )
 
             response = fetch_data(url)
             response_data = response.json()
+
         if isinstance(response_data, (list,)) and len(response_data):
             # create the column strings
             column_data = [construct_column_strings(item) for item in form.get('fields')]
@@ -117,13 +128,18 @@ def save_data_to_db(**kwargs):
                     form.get('name'), columns, primary_key
                 )
 
-                cur.executemany(upsert_query, response_data)
+                cur.executemany(upsert_query, update_row_columns(form.get('fields'),response_data))
                 connection.commit()
 
-                return dict(success=True)
+                success_forms += 1
 
         else:
-            return dict(message='The form {} has no data'.format(form.get('name')))
+            print(dict(message='The form {} has no data'.format(form.get('name'))))
+
+    if success_forms == all_forms:
+        return dict(success=True)
+    else:
+        return dict(failure='Not all forms data loaded')
 
 
 def sync_db_with_server(**context):
