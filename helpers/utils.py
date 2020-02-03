@@ -4,19 +4,20 @@ from pandas.io.json._normalize import nested_to_record
 
 from .configs import (
     POSTGRES_DB, POSTGRES_DB_PASSWORD, POSTGRES_USER,
-    POSTGRES_HOST, POSTGRES_PORT
+    POSTGRES_HOST, POSTGRES_PORT, SURV_MONGO_URI,
 )
+
 
 ############################
 #  Database Connections    #
 ############################
-def establish_mongo_connection(mongo_uri, db_name):
+def establish_mongo_connection(db_name):
     """
     establish MongoDB connection
     : param mongo_uri: mongo connection uri
     : return db_connection: database connection
     """
-    client = MongoClient(mongo_uri)
+    client = MongoClient(SURV_MONGO_URI)
 
     db_connection = client[db_name]
     return db_connection
@@ -150,6 +151,18 @@ def set_column_defaults(type):
         return ''
 
 
+def clean_key_field(row, primary_key):
+    """
+    strip off string 'uuid:' from key field
+    :param row: the row object
+    :param primary_key: primary key
+    :return row: row object with cleaned key field
+    """
+    row[primary_key] = row.get(primary_key).replace('uuid:', '').strip()
+
+    return row
+
+
 ############################
 #  Postgres Operations     #
 ############################
@@ -177,14 +190,12 @@ def construct_postgres_upsert_query(table_name, columns, target_column):
     insert_query_string = 'INSERT INTO ' + table_name + '(' + ','\
         .join(columns) + ')'
     db_field_maps = ['%({})s'.format(item) for item in columns]
-    # exclude_columns = ['EXCLUDE.{}'.format(column) for column in columns]
-    # update_string = 'ON CONFLICT ({})'.format(target_column) +\
-    #                 'DO UPDATE SET (' + ', '.join(columns) + ') = (' + \
-    #                 ', '.join(exclude_columns) + ')'
+    exclude_columns = ['{}=excluded.{}'.format(column, column) for column in columns]
+    update_string = 'ON CONFLICT ({}) '.format(target_column) +\
+                    'DO UPDATE SET ' + ', '.join(exclude_columns)
 
     full_upsert_query_string = insert_query_string + 'VALUES (' + ','.join(
-        db_field_maps) + ')'
-    # + update_string
+        db_field_maps) + ') ' + update_string
 
     return full_upsert_query_string
 
@@ -197,32 +208,63 @@ def construct_postgres_delete_query(table, column, values):
     :param values: list reference values to be deleted
     :return query: the DELETE query string
     """
-    query = 'DELETE FROM {}'.format(table) + 'WHERE ' + \
-            column + 'IN (' + ', '.joint(values) + ')'
+    query = 'DELETE FROM {}'.format(table) + ' WHERE ' + \
+            column + '= ANY(Array[' + ', '.join(["'{}'".format(str(item)) for item in values]) + '])'
 
     return query
 
 
-def construct_column_strings(column_data):
+def construct_column_strings(column_data, primary_key):
     """
     Set data column names and the data_types
     : param column_data: column meta-data
     : return column_string: Postgres query compatible string
     """
     if column_data.get('type', None).lower() == 'int':
-        return column_data.get('name') + ' INT'
+        column_map = column_data.get('name') + ' INT'
 
-    if column_data.get('type', None).lower() == 'decimal':
-        return column_data.get('name') + ' REAL'
+    elif column_data.get('type', None).lower() == 'decimal':
+        column_map = column_data.get('name') + ' REAL'
 
-    if column_data.get('type', None).lower() == 'char':
-        return column_data.get('name') + ' CHAR(' + str(column_data.get('length', 100)) + ')'
+    elif column_data.get('type', None).lower() == 'char':
+        column_map = column_data.get('name') + ' CHAR(' + str(column_data.get('length', 100)) + ')'
 
-    if column_data.get('type', None).lower() == 'boolean':
-        return column_data.get('name') + ' BOOLEAN'
+    elif column_data.get('type', None).lower() == 'boolean':
+        column_map = column_data.get('name') + ' BOOLEAN'
 
     else:
-        return column_data.get('name') + ' TEXT'
+        column_map = column_data.get('name') + ' TEXT'
+
+    if column_data.get('name', None).lower() == str(primary_key).lower():
+        column_map = '{} UNIQUE'.format(column_map)
+
+    return column_map
+
+
+def get_all_row_ids_in_db(connection, primary_key, form):
+    """
+    Get all the list of primary_keys for data in postgres DB
+    :param connection: Postgres DB connection
+    :param primary_key: table's primary_key
+    :return primary_key_id_list: list of the primary_key values
+    """
+    primary_key_values_list = []
+    with connection:
+        cursor = connection.cursor()
+        cursor.execute("DECLARE super_cursor BINARY CURSOR FOR SELECT " + primary_key + " FROM " + form)
+
+        while True:
+            cursor.execute("FETCH 1000 FROM super_cursor")
+            rows = cursor.fetchall()
+
+            if not rows:
+                break
+
+            row_ids = [str(item[0]).strip() for item in rows]
+
+            primary_key_values_list = primary_key_values_list + row_ids
+
+    return primary_key_values_list
 
 
 ############################
@@ -235,12 +277,11 @@ def construct_mongo_upsert_query(data, target_column):
     :param target_column:
     :return:
     """
-
     # use bulk update MongoDB API to save the data
     unique_ids = [item.pop(target_column) for item in data]
     operations = [
         UpdateOne(
-            {target_column: unique_id},
+            {'{}'.format(target_column): unique_id},
             {'$set': data},
             upsert=True
         ) for unique_id, data in zip(unique_ids, data)

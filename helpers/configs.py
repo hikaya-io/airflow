@@ -20,6 +20,8 @@ MONGO_DB_PORT = Variable.get('MONGO_DB_PORT', default_var=27017)
 # SurveyCTO Variables #
 SURV_SERVER_NAME = Variable.get('SURV_SERVER_NAME', default_var='')
 SURV_FORMS = Variable.get('SURV_FORMS', deserialize_json=True)
-SURV_PASSWORD = Variable.get('SURV_PASSWORD', default_var='127.0.0.1')
-SURV_USERNAME = Variable.get('SURV_USERNAME', default_var=27017)
-
+SURV_PASSWORD = Variable.get('SURV_PASSWORD', default_var='')
+SURV_USERNAME = Variable.get('SURV_USERNAME', default_var='')
+SURV_MONGO_URI = Variable.get('SURV_MONGO_URI', default_var='')
+SURV_DBMS = Variable.get('SURV_DBMS', default_var=None)
+SURV_MONGO_DB_NAME = Variable.get('SURV_MONGO_DB_NAME', default_var='')
