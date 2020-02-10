@@ -95,6 +95,7 @@ def get_form_data(form):
             '|'.join(form.get('statuses', ['approved', 'pending'])))
 
         response = fetch_data(url)
+        print('Response Data::', response)
         response_data = response.json()
 
     return  response_data
