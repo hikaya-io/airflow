@@ -12,7 +12,7 @@ from helpers.utils import (
 )
 from helpers.configs import (
     SURV_SERVER_NAME, SURV_USERNAME, SURV_PASSWORD, SURV_FORMS, SURV_DBMS,
-    SURV_MONGO_DB_NAME,
+    SURV_MONGO_DB_NAME, SURV_RECREATE_DB,
 )
 
 default_args = {
@@ -95,7 +95,6 @@ def get_form_data(form):
             '|'.join(form.get('statuses', ['approved', 'pending'])))
 
         response = fetch_data(url)
-        print('Response Data::', response)
         response_data = response.json()
 
     return  response_data
@@ -137,7 +136,9 @@ def save_data_to_db(**kwargs):
 
                 with connection:
                     cur = connection.cursor()
-                    # cur.execute("DROP TABLE IF EXISTS " + form.get('name'))
+                    if SURV_RECREATE_DB is True:
+                        cur.execute("DROP TABLE IF EXISTS " + form.get('name'))
+
                     cur.execute(db_query)
 
                     # insert data
@@ -180,7 +181,6 @@ def sync_db_with_server(**context):
 
     if success_dump.get('success', None) is not None:
         deleted_items = []
-        connection = establish_postgres_connection()
         deleted_data = []
         for form in SURV_FORMS:
             primary_key = form.get('unique_column')
@@ -199,6 +199,7 @@ def sync_db_with_server(**context):
                 """
                 Delete data from postgres id DBMS is set to Postgres
                 """
+                connection = establish_postgres_connection()
                 db_data_keys = get_all_row_ids_in_db(
                     connection,
                     primary_key,
