@@ -138,8 +138,7 @@ def save_data_to_db(**kwargs):
                     cur = connection.cursor()
                     if SURV_RECREATE_DB is True:
                         cur.execute("DROP TABLE IF EXISTS " + form.get('name'))
-
-                    cur.execute(db_query)
+                        cur.execute(db_query)
 
                     # insert data
                     upsert_query = construct_postgres_upsert_query(
