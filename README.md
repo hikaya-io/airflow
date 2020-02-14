@@ -12,25 +12,27 @@ With all the above connectors, the pipeline does the following operations:
 - Sync server and database everytime the pipeline runs (remove stale data)
 
 ## Obtaining the DAGs
-After installing Airflow, or setting it up on your environment
-Clone the DAGs into your `dags` folder by using these commands:
+After installing Airflow, or setting it up on your environment, 
+
+clone the DAGs into your `dags` folder by using these commands:
 
 - For HTTPs: `https://github.com/hikaya-io/connectors.git dags`
 - For SSH: `git@github.com:hikaya-io/connectors.git dags`
 
 ## Enable the DAGs
-Navigate to your DAGs page on the`Airflow` UI and refresh to see the new cloned DAGs from `connectors repo`
+Navigate to your DAGs page on the`Airflow` UI and refresh to see the new cloned DAGs from `connectors` repo
 
-Turn on whichever the DAG that you want to run.
+Turn on whichever the DAG you want to run.
 
-Configurations
-Our connectors uses configurations that are provided by the users on the `Airflow` UI interface.
+## Configurations
+Our connectors uses configurations that are provided by the user on the `Airflow` UI interface.
 
+### Setting the Variables Manually
 To add these Variables, naviagte to the `Admin -> Variables - ADD/+`
 
 Depending on DAG that you've activated, add the following Variables
 
-### Setting the Variables Manually
+
 
 #### Postgress Settings
 `POSTGRES_DB_PASSWORD = ''` 
@@ -60,6 +62,7 @@ Depending on DAG that you've activated, add the following Variables
 `SURV_PASSWORD =  ''` :- SurveyCTO login password
 
 `SURV_FORMS = ''` :-  A list of forms which submissions should be fetched
+
 Below is how the form list should look
 ````
 "SURV_FORMS": [
