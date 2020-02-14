@@ -23,7 +23,7 @@ default_args = {
 KOBO_API_URL = Variable.get('KOBO_API_URL', default_var='')
 KOBO_TOKEN = Variable.get('KOBO_TOKEN', default_var='')
 
-# declare the dags
+# declare the connectors
 dag = DAG('pull_data_from_kobo', default_args=default_args)
 
 

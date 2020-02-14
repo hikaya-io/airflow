@@ -1,0 +1,42 @@
+{
+  "POSTGRES_DB": "survey_cto_db",
+  "POSTGRES_PORT": "25060",
+  "POSTGRES_DB_PASSWORD": "vg7q5xgbsacwr1mq",
+  "POSTGRES_HOST": "hikaya-postgres-db-do-user-6323497-0.db.ondigitalocean.com",
+  "POSTGRES_USER": "postgresDB user",
+  "SURV_DBMS": "Database management systems:- currently supporting 2 (Postgres / postgresdb & mongo / mongodb)",
+  "SURV_MONGO_DB_NAME": "mongoDB name to connect to",
+  "SURV_MONGO_URI": "mongo connection URI:- mongodb://username:password@host/db_name",
+  "SURV_PASSWORD": "SurveyCTO server password",
+  "SURV_RECREATE_DB": "Enable creation of a table when True, or just data dumping when False",
+  "SURV_SERVER_NAME": "SurveyCTO server",
+  "SURV_USERNAME": "SurveyCTO username",
+  "SURV_FORMS": [
+	{
+		"name": "name of the form (table name uses this so it should not have spaces)",
+		"unique_column": "PRIMARY KEY COLUMN (used for references so, the column must be unique)",
+		"form_id": "form ID as on SurveyCTO survers",
+		"statuses": [
+			"approved",
+			"pending",
+			"rejected"
+		],
+		"last_date": "Last submission date for data being fetched. Accepts url-encoded dates of Epoc(Oct%2013%2C%202015%2000%3A00%3A00%20AM)",
+		"fields": [
+          {
+            "name": "field_1",
+            "type": "data_type (VAR:-for less than 100 chars, Text:- for long texts)"
+          },
+          {
+            "name": "first_name",
+            "type": "var:"
+          },
+          {
+            "name": "description",
+            "type": "text"
+          }
+
+		]
+	}
+	]
+}
