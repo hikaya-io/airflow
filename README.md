@@ -106,3 +106,12 @@ Navigate to the `Admin -> Variables`
 Click on Import Variables after selecting the valid JSON file.
 
 NOTE: For this option to work, the file must be a valid flat json file as the one in the template.
+
+## Trigger the Dag
+To manually trigger the configured DAG:
+
+ - Click on the DAG to open the DAG details
+ - Click on `Trigger DAG`
+ - Confirm triggering by clicking `ok` on the prompt
+ 
+ If all the settings are correct, then your DAG should run successfully.
