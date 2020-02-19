@@ -1,19 +1,21 @@
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
+from airflow.hooks.base_hook import BaseHook
+from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
 
 import requests
 from datetime import (datetime, timedelta,)
 
-from helpers.utils import (
-    construct_column_strings, construct_postgres_create_table_query,
-    establish_postgres_connection, construct_postgres_upsert_query,
-    update_row_columns, get_all_row_ids_in_db, construct_postgres_delete_query,
-    clean_key_field, establish_mongo_connection, construct_mongo_upsert_query,
-)
+from helpers.utils import (DataCleaningUtil, )
+from helpers.slack_utils import (SlackNotification,)
+from helpers.mongo_utils import (MongoOperations,)
+from helpers.postgres_utils import (PostgresOperations,)
 from helpers.configs import (
     SURV_SERVER_NAME, SURV_USERNAME, SURV_PASSWORD, SURV_FORMS, SURV_DBMS,
     SURV_MONGO_DB_NAME, SURV_RECREATE_DB,
 )
+
+SLACK_CONN_ID = 'slack'
 
 default_args = {
     'owner': 'Hikaya',
@@ -29,10 +31,6 @@ default_args = {
 
 
 dag = DAG('hikaya_survey_cto_data_pipeline', default_args=default_args)
-
-# def clean_survey_cto_form(form_fields_object):
-#     rteurn
-
 
 def fetch_data(data_url, enc_key_file=None):
     """
@@ -114,7 +112,12 @@ def save_data_to_db(**kwargs):
 
         api_data = get_form_data(form)
 
-        response_data = [clean_key_field(item, primary_key) for item in api_data]
+        response_data = [
+            DataCleaningUtil.clean_key_field(
+                item,
+                primary_key
+            ) for item in api_data
+        ]
 
         if isinstance(response_data, (list,)) and len(response_data):
 
@@ -127,12 +130,20 @@ def save_data_to_db(**kwargs):
                 """
 
                 # create the column strings
-                column_data = [construct_column_strings(item, primary_key) for item in form.get('fields')]
+                column_data = [
+                    DataCleaningUtil.construct_column_strings(
+                        item,
+                        primary_key
+                    ) for item in form.get('fields')
+                ]
 
                 # create the Db
-                db_query = construct_postgres_create_table_query(form.get('name'), column_data)
+                db_query = PostgresOperations.construct_postgres_create_table_query(
+                    form.get('name'),
+                    column_data
+                )
 
-                connection = establish_postgres_connection()
+                connection = PostgresOperations.establish_postgres_connection()
 
                 with connection:
                     cur = connection.cursor()
@@ -141,11 +152,19 @@ def save_data_to_db(**kwargs):
                         cur.execute(db_query)
 
                     # insert data
-                    upsert_query = construct_postgres_upsert_query(
-                        form.get('name'), columns, primary_key
+                    upsert_query = PostgresOperations.construct_postgres_upsert_query(
+                        form.get('name'),
+                        columns,
+                        primary_key
                     )
 
-                    cur.executemany(upsert_query, update_row_columns(form.get('fields'),response_data))
+                    cur.executemany(
+                        upsert_query,
+                        DataCleaningUtil.update_row_columns(
+                            form.get('fields'),
+                            response_data
+                        )
+                    )
                     connection.commit()
 
                     success_forms += 1
@@ -155,9 +174,12 @@ def save_data_to_db(**kwargs):
                 """
                 Dump Data to MongoDB
                 """
-                mongo_connection = establish_mongo_connection(SURV_MONGO_DB_NAME)
+                mongo_connection = MongoOperations.establish_mongo_connection(SURV_MONGO_DB_NAME)
                 collection = mongo_connection[form.get('form_id')]
-                mongo_operations = construct_mongo_upsert_query(response_data, primary_key)
+                mongo_operations = MongoOperations.construct_mongo_upsert_query(
+                    response_data,
+                    primary_key
+                )
                 collection.bulk_write(mongo_operations)
                 success_forms += 1
 
@@ -185,7 +207,10 @@ def sync_db_with_server(**context):
             primary_key = form.get('unique_column')
 
             response_data = [
-                clean_key_field(item, primary_key) for item in get_form_data(form)
+                DataCleaningUtil.clean_key_field(
+                    item,
+                    primary_key
+                ) for item in get_form_data(form)
             ]
             api_data_keys = [
                 item.get(primary_key) for item in response_data
@@ -198,8 +223,8 @@ def sync_db_with_server(**context):
                 """
                 Delete data from postgres id DBMS is set to Postgres
                 """
-                connection = establish_postgres_connection()
-                db_data_keys = get_all_row_ids_in_db(
+                connection = PostgresOperations.establish_postgres_connection()
+                db_data_keys = PostgresOperations.get_all_row_ids_in_db(
                     connection,
                     primary_key,
                     form.get('name')
@@ -208,7 +233,7 @@ def sync_db_with_server(**context):
                 deleted_ids = list(set(db_data_keys) - set(api_data_keys))
                 if len(deleted_ids) > 0:
                     # remove deleted items from the db
-                    query_string = construct_postgres_delete_query(
+                    query_string = PostgresOperations.construct_postgres_delete_query(
                         form.get('name'),
                         primary_key,
                         deleted_ids
@@ -234,7 +259,7 @@ def sync_db_with_server(**context):
                 """
                 delete data from Mongo if DBMS is seto Mongo
                 """
-                mongo_connection = establish_mongo_connection(SURV_MONGO_DB_NAME)
+                mongo_connection = MongoOperations.establish_mongo_connection(SURV_MONGO_DB_NAME)
                 collection = mongo_connection[form.get('form_id')]
                 ids_in_db = collection.distinct(primary_key)
                 deleted_ids = list(set(ids_in_db) - set(api_data_keys))
@@ -250,12 +275,39 @@ def sync_db_with_server(**context):
         return dict(failure='Data dumping failed')
 
 
+def task_success_slack_notification(context):
+    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
+    attachments = SlackNotification.construct_slack_message(context, 'success')
+
+    failed_alert = SlackWebhookOperator(
+        task_id='slack_test',
+        http_conn_id='slack',
+        webhook_token=slack_webhook_token,
+        attachments=attachments,
+        username='airflow'
+    )
+    return failed_alert.execute(context=context)
+
+
+def task_failed_slack_notification(context):
+    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
+    attachments = SlackNotification.construct_slack_message(context, 'failed')
+
+    failed_alert = SlackWebhookOperator(
+        task_id='slack_test',
+        http_conn_id='slack',
+        webhook_token=slack_webhook_token,
+        attachments=attachments,
+        username='airflow')
+    return failed_alert.execute(context=context)
 
 # TASKS
 save_data_to_db_task = PythonOperator(
     task_id='Save_data_to_DB',
     provide_context=True,
     python_callable=save_data_to_db,
+    on_failure_callback=task_failed_slack_notification,
+    on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 
@@ -263,6 +315,8 @@ sync_db_with_server_task = PythonOperator(
     task_id='Sync_DB_With_Server',
     provide_context=True,
     python_callable=sync_db_with_server,
+    on_failure_callback=task_failed_slack_notification,
+    on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 

@@ -26,3 +26,8 @@ SURV_MONGO_URI = Variable.get('SURV_MONGO_URI', default_var='')
 SURV_DBMS = Variable.get('SURV_DBMS', default_var=None)
 SURV_MONGO_DB_NAME = Variable.get('SURV_MONGO_DB_NAME', default_var='')
 SURV_RECREATE_DB = Variable.get('SURV_RECREATE_DB', default_var=False)
+
+# Slack settings
+SLACK_API_TOKEN = Variable.get('SLACK_TOKEN', default_var='')
+SLACK_CHANNEL = Variable.get('SLACK_CHANNEL', default_var='')
+SLACK_USERNAME = Variable.get('SLACK_USERNAME', default_var='')
