@@ -4,33 +4,22 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
 
 import requests
-from datetime import (datetime, timedelta,)
 
 from helpers.utils import (DataCleaningUtil, )
 from helpers.slack_utils import (SlackNotification,)
 from helpers.mongo_utils import (MongoOperations,)
 from helpers.postgres_utils import (PostgresOperations,)
+from helpers.dag_utils import (DagUtility,)
 from helpers.configs import (
     SURV_SERVER_NAME, SURV_USERNAME, SURV_PASSWORD, SURV_FORMS, SURV_DBMS,
-    SURV_MONGO_DB_NAME, SURV_RECREATE_DB,
+    SURV_MONGO_DB_NAME, SURV_RECREATE_DB, SLACK_CONN_ID, SURV_MONGO_URI
 )
 
-SLACK_CONN_ID = 'slack'
 
-default_args = {
-    'owner': 'Hikaya',
-    'depends_on_past': False,
-    'start_date': datetime(2019, 10, 21),
-    'email': ['odenypeter@gmail.com'],
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'catchup_by_default': False,
-    'retries': 2,
-    'retry_delay': timedelta(minutes=1),
-}
-
-
-dag = DAG('hikaya_survey_cto_data_pipeline', default_args=default_args)
+dag = DAG(
+    'hikaya_survey_cto_data_pipeline',
+    default_args=DagUtility.get_dag_default_args()
+)
 
 def fetch_data(data_url, enc_key_file=None):
     """
@@ -174,7 +163,10 @@ def save_data_to_db(**kwargs):
                 """
                 Dump Data to MongoDB
                 """
-                mongo_connection = MongoOperations.establish_mongo_connection(SURV_MONGO_DB_NAME)
+                mongo_connection = MongoOperations.establish_mongo_connection(
+                    SURV_MONGO_URI,
+                    SURV_MONGO_DB_NAME
+                )
                 collection = mongo_connection[form.get('form_id')]
                 mongo_operations = MongoOperations.construct_mongo_upsert_query(
                     response_data,
@@ -259,7 +251,10 @@ def sync_db_with_server(**context):
                 """
                 delete data from Mongo if DBMS is seto Mongo
                 """
-                mongo_connection = MongoOperations.establish_mongo_connection(SURV_MONGO_DB_NAME)
+                mongo_connection = MongoOperations.establish_mongo_connection(
+                    SURV_MONGO_URI,
+                    SURV_MONGO_DB_NAME
+                )
                 collection = mongo_connection[form.get('form_id')]
                 ids_in_db = collection.distinct(primary_key)
                 deleted_ids = list(set(ids_in_db) - set(api_data_keys))

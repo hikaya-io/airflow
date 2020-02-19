@@ -1,11 +1,11 @@
-from pymongo import (MongoClient, UpdateOne,)
-import psycopg2
+"""
+General utility functions
+Data Cleaning Utilities
+"""
+
 from pandas.io.json._normalize import nested_to_record
 
 
-############################
-#  Data Cleaning Utilities #
-############################
 class DataCleaningUtil:
     def __init__(self):
         pass

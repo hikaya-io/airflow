@@ -1,41 +1,29 @@
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
-from airflow.models.variable import Variable
-
-from datetime import datetime, timedelta
-from pymongo import MongoClient
+from airflow.hooks.base_hook import BaseHook
+from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
 
 import requests
 import logging
 
-
-default_args = {
-    'owner': 'Hikaya',
-    'depends_on_past': False,
-    'start_date': datetime(2019, 10, 21),
-    'email': ['odenypeter@gmail.com'],
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'catchup_by_default': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=1),
-}
-
-# get all the variables
-MONGO_DB_USER = Variable.get('MONGO_DB_USER', default_var='')
-MONGO_DB_PASSWORD = Variable.get('MONGO_DB_PASSWORD', default_var='')
-MONGO_DB_HOST = Variable.get('MONGO_DB_HOST', default_var='127.0.0.1')
-MONGO_DB_PORT = Variable.get('MONGO_DB_PORT', default_var=27017)
-ONA_API_URL = Variable.get('ONA_API_URL', default_var='https://api.ona.io/api/v1/')
-ONA_TOKEN = Variable.get('ONA_TOKEN', default_var='')
-ONA_MONGO_AUTH_SOURCE = Variable.get('ONA_MONGO_AUTH_SOURCE', '')
-ONA_MONGO_CONNECTION_NAME = Variable.get('ONA_MONGO_CONNECTION_NAME', '')
+from helpers.dag_utils import (DagUtility,)
+from helpers.mongo_utils import (MongoOperations,)
+from helpers.utils import (DataCleaningUtil,)
+from helpers.postgres_utils import (PostgresOperations,)
+from helpers.slack_utils import (SlackNotification, )
+from helpers.configs import (
+    ONA_TOKEN, ONA_API_URL, ONA_DBMS, ONA_FORMS, ONA_MONGO_URI,
+    ONA_RECREATE_DB, ONA_MONGO_DB_NAME, SLACK_CONN_ID,
+)
 
 
-dag = DAG('pull_data_from_ona', default_args=default_args)
+dag = DAG(
+    'pull_data_from_ona',
+    default_args=DagUtility.get_dag_default_args()
+)
 
 
-def get_ona_projects(**kwargs):
+def get_ona_projects():
     """
     load ONA projects from ONA API
     """
@@ -46,130 +34,169 @@ def get_ona_projects(**kwargs):
     return response.json()
 
 
-def get_ona_form_data(**context):
+def get_ona_form_data(form_id):
     """
     get ONA form data
-    :param context: from the previous task instance
+    :param form_id: form_id
     :return: form data
     """
-    ti = context['ti']
-    json = ti.xcom_pull(task_ids='Get_ONA_projects_from_API')
+    if form_id:
+        url = "{}data/{}".format(ONA_API_URL, form_id)
+        response = requests.get(
+            url,
+            headers={'Authorization': 'Token {}'.format(ONA_TOKEN)})
 
-    for el in json:
-        survey_form = list(filter(lambda x: str(x['formid']) == '447910', el['forms']))
-        if survey_form:
-            url = "{}data/{}".format(ONA_API_URL, survey_form[0]['formid'])
-            response = requests.get(url, headers={'Authorization': 'Token {}'.format(ONA_TOKEN)})
-            data = {'data': response.json(), 'project_name': el['name']}
-    return data
+        return response.json()
+
+    return []
 
 
-def clean_form_data_columns(row):
+def clean_form_data_columns(row, table_fields):
     """
-    rename columns to conform to Metabase expectations
-    :param row: data coming from ONA API
+    rename columns to conform to db expectations
+    :param row: row data coming from ONA API
+    :param table_fields: table fields list
     :return: new data object
     """
-    new_object = {
-        'ona_id': row['_id'] if '_id' in row else '',
-        'uuid': row['_uuid'] if '_uuid' in row else '',
-        'duration': row['_duration'] if '_duration' in row else '',
-        'today': row['today'] if 'today' in row else '',
-        'start_time': row['start_time'] if 'start_time' in row else '',
-        'end_time': row['end_time'] if 'end_time' in row else '',
+    new_object = {}
+    for item in table_fields:
+        new_object[item.db_name] = row.pop(
+            item.get('db_name'),
+            DataCleaningUtil.set_column_defaults(item.get('type'))
+        )
 
-        'q_1': row['sectiona_background/q1'] if 'sectiona_background/q1' in row else '',
-        'q_2': row['sectiona_background/q2'] if 'sectiona_background/q2' in row else '',
-        'q_3': row['sectiona_background/q3'] if 'sectiona_background/q3' in row else '',
-        'q_4': row['sectiona_background/q4'] if 'sectiona_background/q4' in row else '',
-        'q_5': row['sectiona_background/q5'] if 'sectiona_background/q5' in row else '',
-        'q_6': row['sectionb_ict_capacity/q6'] if 'sectionb_ict_capacity/q6' in row else '',
-        'q_7': row['sectionb_ict_capacity/q7'] if 'sectionb_ict_capacity/q7' in row else '',
-        'q_8': row['sectionb_ict_capacity/q8'] if 'sectionb_ict_capacity/q8' in row else '',
-
-        'q_9a': row['sectionb_ict_capacity/q9/q9a'] if 'sectionb_ict_capacity/q9/q9a' in row else '',
-        'q_9b': row['sectionb_ict_capacity/q9/q9b'] if 'sectionb_ict_capacity/q9/q9b' in row else '',
-        'q_9c': row['sectionb_ict_capacity/q9/q9c'] if 'sectionb_ict_capacity/q9/q9c' in row else '',
-        'q_9d': row['sectionb_ict_capacity/q9/q9d'] if 'sectionb_ict_capacity/q9/q9d' in row else '',
-        'q_9e': row['sectionb_ict_capacity/q9/q9e'] if 'sectionb_ict_capacity/q9/q9e' in row else '',
-        'q_9f': row['sectionb_ict_capacity/q9/q9f'] if 'sectionb_ict_capacity/q9/q9f' in row else '',
-        'q_9g': row['sectionb_ict_capacity/q9/q9g'] if 'sectionb_ict_capacity/q9/q9g' in row else '',
-        'q_9h': row['sectionb_ict_capacity/q9/q9h'] if 'sectionb_ict_capacity/q9/q9h' in row else '',
-
-        'q_9h_specify_other': row['sectionb_ict_capacity/q9h_specify_other'] if 'sectionb_ict_capacity/q9h_specify_other' in row else '',
-        'q_10': row['sectionb_ict_capacity/q10'] if 'sectionb_ict_capacity/q10' in row else '',
-        'q_10_explain': row['sectionb_ict_capacity/q10_explain_why'] if 'sectionb_ict_capacity/q10_explain_why' in row else '',
-        'q_11': row['sectiond_connectivity/q11'] if 'sectiond_connectivity/q11' in row else '',
-        'q_12': row['sectiond_connectivity/q12'] if 'sectiond_connectivity/q12' in row else '',
-        'q_13': row['sectiond_connectivity/q13'] if 'sectiond_connectivity/q13' in row else '',
-        'q_14': row['sectiond_connectivity/q14'] if 'sectiond_connectivity/q14' in row else '',
-        'q_15': row['sectiond_connectivity/q15'] if 'sectiond_connectivity/q15' in row else '',
-        'q_16a': row['sectionc_it_services/q16/q16'] if 'ssectionc_it_services/q16/q16' in row else '',
-        'q_16b': row['sectionc_it_services/q16/q16b'] if 'sectionc_it_services/q16/q16b' in row else '',
-        'q_16c': row['sectionc_it_services/q16/q16c'] if 'sectionc_it_services/q16/q16c' in row else '',
-        'q_16d': row['sectionc_it_services/q16/q16d'] if 'sectionc_it_services/q16/q16d' in row else '',
-        'q_16e': row['sectionc_it_services/q16/q16e'] if 'sectionc_it_services/q16/q16e' in row else '',
-        'q_16f': row['sectionc_it_services/q16/q16f'] if 'sectionc_it_services/q16/q16f' in row else '',
-        'q_16g': row['sectionc_it_services/q16/q16g'] if 'sectionc_it_services/q16/q16g' in row else '',
-        'q_16h': row['sectionc_it_services/q16/q16h'] if 'sectionc_it_services/q16/q16h' in row else '',
-
-        'q_16i': row['sectionc_it_services/q16/q16i'] if 'sectionc_it_services/q16/q16i' in row else '',
-        'q_16j': row['sectionc_it_services/q16/q16j'] if 'sectionc_it_services/q16/q16j' in row else '',
-        'q_16k': row['sectionc_it_services/q16/q16k'] if 'sectionc_it_services/q16/q16k' in row else '',
-        'q_6l': row['sectionc_it_services/q16/q16l'] if 'sectionc_it_services/q16/q16l' in row else '',
-        'q_16m': row['sectionc_it_services/q16/q16m'] if 'sectionc_it_services/q16/q16m' in row else '',
-        'q_16n': row['sectionc_it_services/q16/q16n'] if 'sectionc_it_services/q16/q16n' in row else '',
-        'q_16o': row['sectionc_it_services/q16/q16o'] if 'sectionc_it_services/q16/q16o' in row else '',
-        'q_16p': row['sectionc_it_services/q16/q16p'] if 'sectionc_it_services/q16/q16p' in row else '',
-
-        'q_17': row['sectionc_it_services/q17'] if 'sectionc_it_services/q17' in row else '',
-        'q_18': row['sectionc_it_services/q18'] if 'sectionc_it_services/q18' in row else '',
-        'q_19': row['sectionc_it_services/q19'] if 'sectionc_it_services/q19' in row else '',
-        'q_20': row['sectionc_it_services/q20'] if 'sectionc_it_services/q20' in row else '',
-        'q_21': row['sectiong_ict_feedback/q21'] if 'sectiong_ict_feedback/q21' in row else '',
-        'q_22': row['sectiong_ict_feedback/q22'] if 'sectiong_ict_feedback/q22' in row else '',
-
-
-    }
     return new_object
 
 
-def save_ona_data_to_mongo_db(**context):
+def dump_raw_data_to_mongo(db_connection):
+    if ONA_DBMS.lower() == 'mongo' or ONA_DBMS.lower() == 'mongodb':
+        ona_projects = get_ona_projects()
+        for project in ona_projects:
+            for form in project['forms']:
+                if form:
+                    data = get_ona_form_data(form.get('formid'))
+                    collection = db_connection[form.get('name')]
+                    collection.insertMany(data)
+    else:
+        exit(code=1)
+
+
+def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
+    # create the column strings
+    column_data = [
+        DataCleaningUtil.construct_column_strings(
+            item,
+            primary_key
+        ) for item in form.get('fields')
+    ]
+
+    # create the Db
+    db_query = PostgresOperations.construct_postgres_create_table_query(
+        form.get('name'),
+        column_data
+    )
+
+    connection = PostgresOperations.establish_postgres_connection()
+
+    with connection:
+        cur = connection.cursor()
+        if ONA_RECREATE_DB is True:
+            cur.execute("DROP TABLE IF EXISTS " + form.get('name'))
+            cur.execute(db_query)
+
+        # insert data
+        upsert_query = PostgresOperations.construct_postgres_upsert_query(
+            form.get('name'),
+            columns, primary_key
+        )
+
+        cur.executemany(
+            upsert_query,
+            DataCleaningUtil.update_row_columns(
+                form.get('fields'),
+                response_data)
+        )
+        connection.commit()
+
+
+def dump_clean_data_to_mongo(db_connection, form, data):
+    primary_key = form.get('unique_column')
+    collection = db_connection[data['project_name']]
+    logging.info('Data Size {} end'.format(len(data['data'])))
+
+    formatted_data = [
+        clean_form_data_columns(
+            item,
+            form.get('fields')
+        ) for item in data.get('data', None)
+    ]
+
+    # construct clean data for saving
+    if len(formatted_data) > 0:
+        mongo_operations = MongoOperations.construct_mongo_upsert_query(
+            formatted_data,
+            primary_key
+        )
+
+        collection.bulk_write(mongo_operations)
+
+
+def save_ona_data_to_db(**context):
     """
     save data to MongoDB
     :param context:
     :return:
     """
-    ti = context['ti']
-    data = ti.xcom_pull(task_ids='Get_ONA_form_data')
-    client = MongoClient(
-        'mongodb://{}:{}@{}:{}/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource='
-        '{}&authMechanism=SCRAM-SHA-256&3t.uriVersion=3&3t.connection.name={}'.format(
-            MONGO_DB_USER,
-            MONGO_DB_PASSWORD,
-            MONGO_DB_HOST,
-            MONGO_DB_PORT,
-            ONA_MONGO_AUTH_SOURCE,
-            ONA_MONGO_CONNECTION_NAME
-        ))
-    db_connection = client['ict_capacity']
-    collection = db_connection[data['project_name']]
-    logging.info('Data Size {} end'.format(len(data['data'])))
+    db_connection = MongoOperations.establish_mongo_connection(
+        ONA_MONGO_URI,
+        ONA_MONGO_DB_NAME
+    )
 
-    for em in data['data']:
-        formatted_data = clean_form_data_columns(em)
-        '''
-        use find_one_and_update with upsert=True
-        to update if the submission already exists
-        '''
-        collection.find_one_and_update(
-            {'ona_id': formatted_data['ona_id']},
-            {'$set': formatted_data},
-            upsert=True
-        )
+    if ONA_FORMS is None or len(ONA_FORMS) == 0:
+        # dump raw data to db without formatting the columns
+        dump_raw_data_to_mongo(db_connection)
+
+    else:
+        all_forms = len(ONA_FORMS)
+        success_forms = 0
+        for form in ONA_FORMS:
+
+            # get columns
+            columns = [item.get('db_name') for item in form.get('fields')]
+            primary_key = form.get('unique_column')
+
+            api_data = get_ona_form_data(form.get('form_id'))
+
+            response_data = [
+                DataCleaningUtil.clean_key_field(
+                    item,
+                    primary_key
+                ) for item in api_data
+            ]
+
+            if isinstance(response_data, (list,)) and len(response_data):
+                if ONA_DBMS.lower() == 'postgres' or ONA_DBMS.lower() == 'postgresdb':
+                    """
+                    Dump data to postgres 
+                    """
+                    dump_clean_data_to_postgres(primary_key, form, columns, response_data)
+                    success_forms += 1
+                else:
+                    """
+                    Dump Data to MongoDB
+                    """
+                    dump_clean_data_to_mongo(db_connection, form, response_data)
+                    success_forms += 1
+            else:
+                print(dict(message='The form {} has no data'.format(form.get('name'))))
+
+        if success_forms == all_forms:
+            return dict(success=True)
+        else:
+            return dict(failure='Not all forms data loaded or other forms had no data')
 
 
-def delete_submissions_on_db(**context):
+def sync_submissions_on_db(**context):
     """
     delete submissions that nolonger exist on API
     :param context:
@@ -178,27 +205,51 @@ def delete_submissions_on_db(**context):
     pass
 
 
+def task_success_slack_notification(context):
+    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
+    attachments = SlackNotification.construct_slack_message(context, 'success')
+
+    failed_alert = SlackWebhookOperator(
+        task_id='slack_test',
+        http_conn_id='slack',
+        webhook_token=slack_webhook_token,
+        attachments=attachments,
+        username='airflow'
+    )
+    return failed_alert.execute(context=context)
+
+
+def task_failed_slack_notification(context):
+    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
+    attachments = SlackNotification.construct_slack_message(context, 'failed')
+
+    failed_alert = SlackWebhookOperator(
+        task_id='slack_test',
+        http_conn_id='slack',
+        webhook_token=slack_webhook_token,
+        attachments=attachments,
+        username='airflow')
+    return failed_alert.execute(context=context)
+
+
 # TASKS
-get_ONA_projects_from_api_task = PythonOperator(
-    task_id='Get_ONA_projects_from_API',
+save_ONA_data_to_db_task = PythonOperator(
+    task_id='Save_ONA_data_to_db',
     provide_context=True,
-    python_callable=get_ona_projects,
+    python_callable=save_ona_data_to_db,
+    on_failure_callback=task_failed_slack_notification,
+    on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 
 
-get_ona_form_data_task = PythonOperator(
-    task_id='Get_ONA_form_data',
+sync_ONA_submissions_on_db_task = PythonOperator(
+    task_id='Sync_ONA_data_with_db',
     provide_context=True,
-    python_callable=get_ona_form_data,
+    python_callable=sync_submissions_on_db,
+    on_failure_callback=task_failed_slack_notification,
+    on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 
-save_ONA_data_db_task = PythonOperator(
-    task_id='Save_ONA_data_to_mongo_db',
-    provide_context=True,
-    python_callable=save_ona_data_to_mongo_db,
-    dag=dag,
-)
-
-get_ONA_projects_from_api_task>>get_ona_form_data_task>>save_ONA_data_db_task
+save_ONA_data_to_db_task >> sync_ONA_submissions_on_db_task
