@@ -2,7 +2,6 @@
 General utility functions
 Data Cleaning Utilities
 """
-
 from pandas.io.json._normalize import nested_to_record
 
 
@@ -118,7 +117,6 @@ class DataCleaningUtil:
                         self.set_column_defaults(field_obj.get('type', None))
                     )
         return data
-
 
     @staticmethod
     def clean_key_field(row, primary_key):

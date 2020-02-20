@@ -58,8 +58,9 @@ ONA_TOKEN = Variable.get('ONA_TOKEN', default_var='')
 ONA_MONGO_URI = Variable.get('ONA_MONGO_URI', default_var='')
 ONA_MONGO_DB_NAME = Variable.get('ONA_MONGO_DB_NAME', default_var='')
 ONA_DBMS = Variable.get('ONA_DBMS', default_var=None)
-ONA_RECREATE_DB = Variable.get('ONA_RECREATE_DB', default_var=False)
-ONA_FORMS = Variable.get('SURV_FORMS', deserialize_json=True, default_var=None)
+ONA_POSTGRES_DB_NAME = Variable.get('ONA_DBMS', default_var=None)
+ONA_RECREATE_DB = Variable.get('ONA_POSTGRES_DB_NAME', default_var='ona_data')
+ONA_FORMS = Variable.get('ONA_FORMS', deserialize_json=True, default_var=None)
 
 """
 Kobo Variables

@@ -13,7 +13,7 @@ from helpers.postgres_utils import (PostgresOperations,)
 from helpers.slack_utils import (SlackNotification, )
 from helpers.configs import (
     ONA_TOKEN, ONA_API_URL, ONA_DBMS, ONA_FORMS, ONA_MONGO_URI,
-    ONA_RECREATE_DB, ONA_MONGO_DB_NAME, SLACK_CONN_ID,
+    ONA_RECREATE_DB, ONA_MONGO_DB_NAME, SLACK_CONN_ID, ONA_POSTGRES_DB_NAME,
 )
 
 
@@ -60,8 +60,8 @@ def clean_form_data_columns(row, table_fields):
     """
     new_object = {}
     for item in table_fields:
-        new_object[item.db_name] = row.pop(
-            item.get('db_name'),
+        new_object[item.get('db_name')] = row.pop(
+            item.get('api_name'),
             DataCleaningUtil.set_column_defaults(item.get('type'))
         )
 
@@ -69,7 +69,10 @@ def clean_form_data_columns(row, table_fields):
 
 
 def dump_raw_data_to_mongo(db_connection):
-    if ONA_DBMS.lower() == 'mongo' or ONA_DBMS.lower() == 'mongodb':
+    if ONA_DBMS is None or (
+            ONA_DBMS is not None and (
+            ONA_DBMS.lower() == 'mongo' or ONA_DBMS.lower() == 'mongodb')
+    ):
         ona_projects = get_ona_projects()
         for project in ona_projects:
             for form in project['forms']:
@@ -96,7 +99,7 @@ def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
         column_data
     )
 
-    connection = PostgresOperations.establish_postgres_connection()
+    connection = PostgresOperations.establish_postgres_connection(ONA_POSTGRES_DB_NAME)
 
     with connection:
         cur = connection.cursor()
@@ -121,14 +124,17 @@ def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
 
 def dump_clean_data_to_mongo(db_connection, form, data):
     primary_key = form.get('unique_column')
-    collection = db_connection[data['project_name']]
-    logging.info('Data Size {} end'.format(len(data['data'])))
+    print('MONGO_URI', ONA_MONGO_URI)
+    connection = MongoOperations.establish_mongo_connection(ONA_MONGO_URI, ONA_MONGO_DB_NAME)
+
+    collection = connection[form.get('name')]
+    logging.info('Data Size {} end'.format(len(data)))
 
     formatted_data = [
         clean_form_data_columns(
             item,
             form.get('fields')
-        ) for item in data.get('data', None)
+        ) for item in data
     ]
 
     # construct clean data for saving
@@ -164,18 +170,19 @@ def save_ona_data_to_db(**context):
             # get columns
             columns = [item.get('db_name') for item in form.get('fields')]
             primary_key = form.get('unique_column')
-
             api_data = get_ona_form_data(form.get('form_id'))
-
+            logging.info('Ona Data::::', api_data)
             response_data = [
-                DataCleaningUtil.clean_key_field(
+                clean_form_data_columns(
                     item,
-                    primary_key
+                    form.get('fields')
                 ) for item in api_data
             ]
 
             if isinstance(response_data, (list,)) and len(response_data):
-                if ONA_DBMS.lower() == 'postgres' or ONA_DBMS.lower() == 'postgresdb':
+                if ONA_DBMS is not None and (
+                        ONA_DBMS.lower() == 'postgres' or ONA_DBMS.lower() == 'postgresdb'
+                ):
                     """
                     Dump data to postgres 
                     """
@@ -237,7 +244,7 @@ save_ONA_data_to_db_task = PythonOperator(
     task_id='Save_ONA_data_to_db',
     provide_context=True,
     python_callable=save_ona_data_to_db,
-    on_failure_callback=task_failed_slack_notification,
+    # on_failure_callback=task_failed_slack_notification,
     on_success_callback=task_success_slack_notification,
     dag=dag,
 )
@@ -247,7 +254,7 @@ sync_ONA_submissions_on_db_task = PythonOperator(
     task_id='Sync_ONA_data_with_db',
     provide_context=True,
     python_callable=sync_submissions_on_db,
-    on_failure_callback=task_failed_slack_notification,
+    # on_failure_callback=task_failed_slack_notification,
     on_success_callback=task_success_slack_notification,
     dag=dag,
 )

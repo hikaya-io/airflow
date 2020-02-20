@@ -14,13 +14,13 @@ class PostgresOperations:
         pass
 
     @staticmethod
-    def establish_postgres_connection():
+    def establish_postgres_connection(db_name):
         """
         establish postgres connection
         :return connection: database connection
         """
         connection = psycopg2.connect(
-            database='{}'.format(POSTGRES_DB),
+            database='{}'.format(db_name),
             user='{}'.format(POSTGRES_USER),
             password='{}'.format(POSTGRES_DB_PASSWORD),
             host='{}'.format(POSTGRES_HOST),

@@ -12,7 +12,7 @@ from helpers.postgres_utils import (PostgresOperations,)
 from helpers.dag_utils import (DagUtility,)
 from helpers.configs import (
     SURV_SERVER_NAME, SURV_USERNAME, SURV_PASSWORD, SURV_FORMS, SURV_DBMS,
-    SURV_MONGO_DB_NAME, SURV_RECREATE_DB, SLACK_CONN_ID, SURV_MONGO_URI
+    SURV_MONGO_DB_NAME, SURV_RECREATE_DB, SLACK_CONN_ID, SURV_MONGO_URI, POSTGRES_DB,
 )
 
 
@@ -132,7 +132,7 @@ def save_data_to_db(**kwargs):
                     column_data
                 )
 
-                connection = PostgresOperations.establish_postgres_connection()
+                connection = PostgresOperations.establish_postgres_connection(POSTGRES_DB)
 
                 with connection:
                     cur = connection.cursor()
@@ -215,7 +215,7 @@ def sync_db_with_server(**context):
                 """
                 Delete data from postgres id DBMS is set to Postgres
                 """
-                connection = PostgresOperations.establish_postgres_connection()
+                connection = PostgresOperations.establish_postgres_connection(POSTGRES_DB)
                 db_data_keys = PostgresOperations.get_all_row_ids_in_db(
                     connection,
                     primary_key,
