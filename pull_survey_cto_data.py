@@ -21,6 +21,8 @@ dag = DAG(
     default_args=DagUtility.get_dag_default_args()
 )
 
+slack_notification = SlackNotification()
+
 def fetch_data(data_url, enc_key_file=None):
     """
     Extract records or media files from the SurveyCTO Rest API depending on the url provided
@@ -249,7 +251,7 @@ def sync_db_with_server(**context):
                     deleted_data.append(dict(success=deleted_items))
             else:
                 """
-                delete data from Mongo if DBMS is seto Mongo
+                delete data from Mongo if DBMS is set to Mongo
                 """
                 mongo_connection = MongoOperations.establish_mongo_connection(
                     SURV_MONGO_URI,
@@ -272,7 +274,11 @@ def sync_db_with_server(**context):
 
 def task_success_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    attachments = SlackNotification.construct_slack_message(context, 'success')
+    attachments = slack_notification.construct_slack_message(
+        context,
+        'success',
+        'surveycto'
+    )
 
     failed_alert = SlackWebhookOperator(
         task_id='slack_test',
@@ -286,7 +292,11 @@ def task_success_slack_notification(context):
 
 def task_failed_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    attachments = SlackNotification.construct_slack_message(context, 'failed')
+    attachments = slack_notification.construct_slack_message(
+        context,
+        'failed',
+        'surveycto'
+    )
 
     failed_alert = SlackWebhookOperator(
         task_id='slack_test',

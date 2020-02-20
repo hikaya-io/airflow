@@ -124,11 +124,7 @@ def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
 
 def dump_clean_data_to_mongo(db_connection, form, data):
     primary_key = form.get('unique_column')
-    print('MONGO_URI', ONA_MONGO_URI)
-    connection = MongoOperations.establish_mongo_connection(ONA_MONGO_URI, ONA_MONGO_DB_NAME)
-
-    collection = connection[form.get('name')]
-    logging.info('Data Size {} end'.format(len(data)))
+    collection = db_connection[form.get('name')]
 
     formatted_data = [
         clean_form_data_columns(
@@ -171,7 +167,6 @@ def save_ona_data_to_db(**context):
             columns = [item.get('db_name') for item in form.get('fields')]
             primary_key = form.get('unique_column')
             api_data = get_ona_form_data(form.get('form_id'))
-            logging.info('Ona Data::::', api_data)
             response_data = [
                 clean_form_data_columns(
                     item,
@@ -209,12 +204,90 @@ def sync_submissions_on_db(**context):
     :param context:
     :return:
     """
-    pass
+    success_dump = context['ti'].xcom_pull(task_ids='Save_ONA_data_to_db')
+
+    if success_dump.get('success', None) is not None:
+        deleted_items = []
+        deleted_data = []
+        for form in ONA_FORMS:
+            primary_key = form.get('unique_column')
+
+            response_data = [
+                clean_form_data_columns(
+                    item,
+                    form.get('fields')
+                ) for item in get_ona_form_data(form.get('form_id'))
+            ]
+
+            api_data_keys = [item.get(primary_key) for item in response_data]
+
+            if ONA_DBMS is not None and (
+                    ONA_DBMS.lower() == 'postgres' or ONA_DBMS.lower().replace(' ', '') == 'postgresdb'):
+                """
+                Delete data from postgres id DBMS is set to Postgres
+                """
+                connection = PostgresOperations.establish_postgres_connection(ONA_POSTGRES_DB_NAME)
+                db_data_keys = PostgresOperations.get_all_row_ids_in_db(
+                    connection,
+                    primary_key,
+                    form.get('name')
+                )
+
+                deleted_ids = list(set(db_data_keys) - set(api_data_keys))
+                if len(deleted_ids) > 0:
+                    # remove deleted items from the db
+                    query_string = PostgresOperations.construct_postgres_delete_query(
+                        form.get('name'),
+                        primary_key,
+                        deleted_ids
+                    )
+
+                    with connection:
+                        cur = connection.cursor()
+
+                        cur.execute(query_string)
+
+                        connection.commit()
+
+                        deleted_items.append(
+                            dict(
+                                keys=deleted_ids,
+                                table=form.get('name'),
+                                number_of_items=len(deleted_ids)
+                            )
+                        )
+
+                    deleted_data.append(dict(success=deleted_items))
+            else:
+                """
+                delete data from Mongo if DBMS is set to Mongo
+                """
+                mongo_connection = MongoOperations.establish_mongo_connection(
+                    ONA_MONGO_URI,
+                    ONA_MONGO_DB_NAME
+                )
+                collection = mongo_connection[form.get('form_id')]
+                ids_in_db = collection.distinct(primary_key)
+                deleted_ids = list(set(ids_in_db) - set(api_data_keys))
+                if len(deleted_ids) > 0:
+                    collection.delete_many({'{}'.format(primary_key): {'$in': deleted_ids}})
+
+        if len(deleted_data) > 0:
+            return dict(report=deleted_data)
+        else:
+            return dict(message='All Data is up to date!!')
+
+    else:
+        return dict(failure='Data dumping failed')
 
 
 def task_success_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    attachments = SlackNotification.construct_slack_message(context, 'success')
+    attachments = SlackNotification.construct_slack_message(
+        context,
+        'success',
+        'ona'
+    )
 
     failed_alert = SlackWebhookOperator(
         task_id='slack_test',
@@ -228,7 +301,11 @@ def task_success_slack_notification(context):
 
 def task_failed_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    attachments = SlackNotification.construct_slack_message(context, 'failed')
+    attachments = SlackNotification.construct_slack_message(
+        context,
+        'failed',
+        'ona'
+    )
 
     failed_alert = SlackWebhookOperator(
         task_id='slack_test',
@@ -244,7 +321,7 @@ save_ONA_data_to_db_task = PythonOperator(
     task_id='Save_ONA_data_to_db',
     provide_context=True,
     python_callable=save_ona_data_to_db,
-    # on_failure_callback=task_failed_slack_notification,
+    on_failure_callback=task_failed_slack_notification,
     on_success_callback=task_success_slack_notification,
     dag=dag,
 )
@@ -254,7 +331,7 @@ sync_ONA_submissions_on_db_task = PythonOperator(
     task_id='Sync_ONA_data_with_db',
     provide_context=True,
     python_callable=sync_submissions_on_db,
-    # on_failure_callback=task_failed_slack_notification,
+    on_failure_callback=task_failed_slack_notification,
     on_success_callback=task_success_slack_notification,
     dag=dag,
 )

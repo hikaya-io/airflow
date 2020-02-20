@@ -9,11 +9,36 @@ class SlackNotification:
         pass
 
     @staticmethod
-    def construct_slack_message(context, status):
+    def set_footer_icon(pipeline):
+        footer_icon = 'https://hikaya.io/assets/images/dots.png',
+        footer_msg = 'Dots Data Pipeline Notification'
+        if pipeline.lower() == 'ona':
+            footer_icon = 'https://ona.io/img/onadata-logo.png'
+            footer_msg = 'ONA Pipeline Notification'
+
+        if pipeline.lower() == 'kobo':
+            footer_icon = 'https://kobo.humanitarianresponse.info/static/img/kobologo.svg'
+            footer_msg = 'KoboToolBox Pipeline Notification'
+
+        if pipeline.lower() == 'commcare':
+            footer_icon = 'https://blogs.unicef.org/wp-content/uploads/sites/2/2012/06/commcare.gif'
+            footer_msg = 'CommCareHQ Pipeline Notification'
+
+        if pipeline.lower() == 'surveycto':
+            footer_icon = 'https://www.surveycto.com/wp-content/uploads/2018/04/SurveyCTO-Logo-CMYK.png'
+            footer_msg = 'SurveyCTO Pipeline Notification'
+
+        return dict(
+            footer_icon=footer_icon,
+            footer_msg=footer_msg
+        )
+    @classmethod
+    def construct_slack_message(cls, context, status, pipeline):
         """
         construct slack notification message
         :param context: task context
-        :param status: task status failed | success
+        :param status: task status failed|success
+        :param pipeline: the data pipeline ona|kobo|surveycto|commcare
         :return attachments: slack message attachments
         """
         if status == 'success':
@@ -23,6 +48,7 @@ class SlackNotification:
         else:
             notification_message = 'Failed!!! :octagonal_sign: :octagonal_sign: :disappointed: :disappointed:'
             message_imoji = ':red_circle:'
+
         slack_msg = """
         {message_imoji} Task Successful. 
         *Task*: {task}  
@@ -37,6 +63,10 @@ class SlackNotification:
         )
 
         task_name = context.get('task_instance').task_id.replace('_', ' ').title()
+
+        # set footer icon
+        footer = cls.set_footer_icon(pipeline)
+        print('footer::::', footer)
         attachments = [
             {
                 'fallback': slack_msg,
@@ -64,8 +94,8 @@ class SlackNotification:
                         'short': False
                     }
                 ],
-                'footer': 'Hikaya Airflow',
-                'footer_icon': 'https://hikaya.io/assets/images/dots.png'
+                'footer': footer.get('footer_msg', ''),
+                'footer_icon': footer.get('footer_icon', '')
             }
         ]
 
