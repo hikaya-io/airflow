@@ -89,10 +89,10 @@ class DataCleaningUtil:
             return None
 
         if type.lower() == 'array':
-            return []
+            return None
 
         if type.lower() == 'object' or type.lower() == 'json':
-            return {}
+            return None
 
         else:
             return ''
@@ -144,12 +144,17 @@ class DataCleaningUtil:
         :param row:
         :return:
         """
+        print('ROW BEFORE', row)
         for key, value in row.items():
             if isinstance(value, (list, dict,)):
                 column_value = row.pop(key)
-                row.setdefault(key, json.dumps(column_value))
+                if len(list(value)) > 0:
+                    row.setdefault(key, json.dumps(column_value).replace('[', '{').replace(']', '}'))
+                else:
+                    row.setdefault(key, None)
 
             if value is not None and isinstance(value, (str,)) and 'uuid:' in str(value):
                 column_value = row.pop(key)
                 row.setdefault(key, column_value.replace('uuid:', '').strip())
+        print('ROW AFTER::::', row)
         return row

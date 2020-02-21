@@ -84,7 +84,7 @@ def dump_raw_data_to_mongo(db_connection):
 
 
 def dump_clean_data_to_postgres(primary_key, form, columns, data):
-    # create the Db
+
     cleaned_data = [
         DataCleaningUtil.json_stringify_colum_data(
             item
@@ -95,8 +95,6 @@ def dump_clean_data_to_postgres(primary_key, form, columns, data):
         form.get('name'),
         columns
     )
-    print('DB QUERY ::::::::', db_query)
-
     connection = PostgresOperations.establish_postgres_connection(ONA_POSTGRES_DB_NAME)
 
     with connection:

@@ -84,11 +84,17 @@ def dump_raw_data_to_mongo(db_connection):
         exit(code=1)
 
 
-def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
+def dump_clean_data_to_postgres(primary_key, form, columns, data):
+    cleaned_data = [
+        DataCleaningUtil.json_stringify_colum_data(
+            item
+        ) for item in data
+    ]
+
     # create the Db
     db_query = PostgresOperations.construct_postgres_create_table_query(
         form.get('form_db_name'),
-        response_data
+        columns
     )
 
     connection = PostgresOperations.establish_postgres_connection(KOBO_POSTGRES_DB_NAME)
@@ -97,19 +103,21 @@ def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
         cur = connection.cursor()
         if KOBO_RECREATE_DB is True:
             cur.execute("DROP TABLE IF EXISTS " + form.get('form_db_name'))
-            cur.execute(db_query)
+        cur.execute(db_query)
 
         # insert data
         upsert_query = PostgresOperations.construct_postgres_upsert_query(
             form.get('form_db_name'),
-            columns, primary_key
+            [item.get('db_name') for item in form.get('fields')],
+            primary_key
         )
 
         cur.executemany(
             upsert_query,
             DataCleaningUtil.update_row_columns(
                 form.get('fields'),
-                response_data)
+                cleaned_data
+            )
         )
         connection.commit()
 
