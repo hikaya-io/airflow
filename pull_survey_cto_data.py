@@ -17,7 +17,7 @@ from helpers.configs import (
 
 
 dag = DAG(
-    'hikaya_survey_cto_data_pipeline',
+    'dots_survey_cto_data_pipeline',
     default_args=DagUtility.get_dag_default_args()
 )
 

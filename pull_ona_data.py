@@ -4,7 +4,6 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
 
 import requests
-import logging
 
 from helpers.dag_utils import (DagUtility,)
 from helpers.mongo_utils import (MongoOperations,)
@@ -18,7 +17,7 @@ from helpers.configs import (
 
 
 dag = DAG(
-    'pull_data_from_ona',
+    'dots_ona_data_data_pipeline',
     default_args=DagUtility.get_dag_default_args()
 )
 
@@ -85,18 +84,10 @@ def dump_raw_data_to_mongo(db_connection):
 
 
 def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
-    # create the column strings
-    column_data = [
-        DataCleaningUtil.construct_column_strings(
-            item,
-            primary_key
-        ) for item in form.get('fields')
-    ]
-
     # create the Db
     db_query = PostgresOperations.construct_postgres_create_table_query(
         form.get('name'),
-        column_data
+        response_data
     )
 
     connection = PostgresOperations.establish_postgres_connection(ONA_POSTGRES_DB_NAME)
@@ -125,18 +116,11 @@ def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
 def dump_clean_data_to_mongo(db_connection, form, data):
     primary_key = form.get('unique_column')
     collection = db_connection[form.get('name')]
-
-    formatted_data = [
-        clean_form_data_columns(
-            item,
-            form.get('fields')
-        ) for item in data
-    ]
-
+    print('data::::', data)
     # construct clean data for saving
-    if len(formatted_data) > 0:
+    if len(data) > 0:
         mongo_operations = MongoOperations.construct_mongo_upsert_query(
-            formatted_data,
+            data,
             primary_key
         )
 
@@ -321,8 +305,8 @@ save_ONA_data_to_db_task = PythonOperator(
     task_id='Save_ONA_data_to_db',
     provide_context=True,
     python_callable=save_ona_data_to_db,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
+    # on_failure_callback=task_failed_slack_notification,
+    # on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 
@@ -331,8 +315,8 @@ sync_ONA_submissions_on_db_task = PythonOperator(
     task_id='Sync_ONA_data_with_db',
     provide_context=True,
     python_callable=sync_submissions_on_db,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
+    # on_failure_callback=task_failed_slack_notification
+    # on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 

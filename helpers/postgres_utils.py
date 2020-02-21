@@ -84,22 +84,32 @@ class PostgresOperations:
         : param column_data: column meta-data
         : return column_string: Postgres query compatible string
         """
-        if column_data.get('type', None).lower() == 'int':
+        if column_data.get('type', '').lower() == 'int':
             column_map = column_data.get('name') + ' INT'
 
-        elif column_data.get('type', None).lower() == 'decimal':
+        elif column_data.get('type', '').lower() == 'decimal':
             column_map = column_data.get('name') + ' REAL'
 
-        elif column_data.get('type', None).lower() == 'char':
+        elif column_data.get('type', '').lower() == 'char':
             column_map = column_data.get('name') + ' CHAR(' + str(column_data.get('length', 100)) + ')'
 
-        elif column_data.get('type', None).lower() == 'boolean':
+        elif column_data.get('type', '').lower() == 'boolean':
             column_map = column_data.get('name') + ' BOOLEAN'
+
+        elif column_data.get('type', '').lower() == 'boolean':
+            column_map = column_data.get('name') + ' BOOLEAN'
+
+        elif column_data.get('type', '').lower() == 'array':
+            column_map = column_data.get('name') + ' text[]'
+
+        elif column_data.get('type', '').lower() == 'object' or \
+                column_data.get('type', '').lower() == 'json':
+            column_map = column_data.get('name') + ' jsonb'
 
         else:
             column_map = column_data.get('name') + ' TEXT'
 
-        if column_data.get('name', None).lower() == str(primary_key).lower():
+        if column_data.get('name', '').lower() == str(primary_key).lower():
             column_map = '{} UNIQUE'.format(column_map)
 
         return column_map

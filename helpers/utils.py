@@ -88,6 +88,12 @@ class DataCleaningUtil:
         if type.lower() == 'boolean':
             return None
 
+        if type.lower() == 'array':
+            return []
+
+        if type.lower() == 'object' or type.lower() == 'json':
+            return {}
+
         else:
             return ''
 
