@@ -83,32 +83,43 @@ def dump_raw_data_to_mongo(db_connection):
         exit(code=1)
 
 
-def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
+def dump_clean_data_to_postgres(primary_key, form, columns, data):
     # create the Db
+    cleaned_data = [
+        DataCleaningUtil.json_stringify_colum_data(
+            item
+        ) for item in data
+    ]
+
     db_query = PostgresOperations.construct_postgres_create_table_query(
         form.get('name'),
-        response_data
+        columns
     )
+    print('DB QUERY ::::::::', db_query)
 
     connection = PostgresOperations.establish_postgres_connection(ONA_POSTGRES_DB_NAME)
 
     with connection:
         cur = connection.cursor()
         if ONA_RECREATE_DB is True:
+            # destroy DB if exists
             cur.execute("DROP TABLE IF EXISTS " + form.get('name'))
-            cur.execute(db_query)
+
+        # create DB if not exists
+        cur.execute(db_query)
 
         # insert data
         upsert_query = PostgresOperations.construct_postgres_upsert_query(
             form.get('name'),
-            columns, primary_key
+            [item.get('db_name') for item in form.get('fields')],
+            primary_key
         )
 
         cur.executemany(
             upsert_query,
             DataCleaningUtil.update_row_columns(
                 form.get('fields'),
-                response_data)
+                cleaned_data)
         )
         connection.commit()
 
@@ -116,8 +127,7 @@ def dump_clean_data_to_postgres(primary_key, form, columns, response_data):
 def dump_clean_data_to_mongo(db_connection, form, data):
     primary_key = form.get('unique_column')
     collection = db_connection[form.get('name')]
-    print('data::::', data)
-    # construct clean data for saving
+
     if len(data) > 0:
         mongo_operations = MongoOperations.construct_mongo_upsert_query(
             data,
@@ -148,9 +158,9 @@ def save_ona_data_to_db(**context):
         for form in ONA_FORMS:
 
             # get columns
-            columns = [item.get('db_name') for item in form.get('fields')]
             primary_key = form.get('unique_column')
             api_data = get_ona_form_data(form.get('form_id'))
+
             response_data = [
                 clean_form_data_columns(
                     item,
@@ -165,7 +175,16 @@ def save_ona_data_to_db(**context):
                     """
                     Dump data to postgres 
                     """
-                    dump_clean_data_to_postgres(primary_key, form, columns, response_data)
+                    # create the column strings
+                    column_data = [
+                        PostgresOperations.construct_column_strings
+                        (
+                            item,
+                            primary_key
+                        ) for item in form.get('fields')
+                    ]
+
+                    dump_clean_data_to_postgres(primary_key, form, column_data, response_data)
                     success_forms += 1
                 else:
                     """

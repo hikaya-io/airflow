@@ -3,7 +3,7 @@ General utility functions
 Data Cleaning Utilities
 """
 from pandas.io.json._normalize import nested_to_record
-
+import json
 
 class DataCleaningUtil:
     def __init__(self):
@@ -97,14 +97,15 @@ class DataCleaningUtil:
         else:
             return ''
 
-    def update_row_columns(self, fields, data):
+    @classmethod
+    def update_row_columns(cls, fields, data):
         """
         Set missing column values
         :param fields: table fields
         :param data: data to be dumped
         :return data: updated data
         """
-        columns = [item.get('name') for item in fields]
+        columns = [item.get('name') or item.get('db_name') for item in fields]
         for row_data in list(data):
             row_columns = row_data.keys()
 
@@ -114,13 +115,13 @@ class DataCleaningUtil:
                 for column in missing_columns:
                     field_obj = next(
                         filter(
-                            lambda field: field.get('name') == column,
+                            lambda field: field.get('name') or item.get('db_name') == column,
                             fields
                         )
                     )
                     row_data.setdefault(
                         column,
-                        self.set_column_defaults(field_obj.get('type', None))
+                        cls.set_column_defaults(field_obj.get('type', None))
                     )
         return data
 
@@ -134,4 +135,21 @@ class DataCleaningUtil:
         """
         row[primary_key] = row.get(primary_key).replace('uuid:', '').strip()
 
+        return row
+
+    @staticmethod
+    def json_stringify_colum_data(row):
+        """
+        stringify json object to prevent postgress from complaining
+        :param row:
+        :return:
+        """
+        for key, value in row.items():
+            if isinstance(value, (list, dict,)):
+                column_value = row.pop(key)
+                row.setdefault(key, json.dumps(column_value))
+
+            if value is not None and isinstance(value, (str,)) and 'uuid:' in str(value):
+                column_value = row.pop(key)
+                row.setdefault(key, column_value.replace('uuid:', '').strip())
         return row

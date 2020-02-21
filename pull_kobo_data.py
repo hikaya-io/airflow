@@ -151,7 +151,6 @@ def save_kobo_data_to_db(**context):
         for form in KOBO_FORMS:
 
             # get columns
-            columns = [item.get('db_name') for item in form.get('fields')]
             primary_key = form.get('unique_column')
             api_data = get_kobo_form_data(form.get('form_id'))
             response_data = [
@@ -168,7 +167,16 @@ def save_kobo_data_to_db(**context):
                     """
                     Dump data to postgres 
                     """
-                    dump_clean_data_to_postgres(primary_key, form, columns, response_data)
+
+                    # create the column strings
+                    column_data = [
+                        PostgresOperations.construct_column_strings(
+                            item,
+                            primary_key
+                        ) for item in form.get('fields')
+                    ]
+
+                    dump_clean_data_to_postgres(primary_key, form, column_data, response_data)
                     success_forms += 1
                 else:
                     """

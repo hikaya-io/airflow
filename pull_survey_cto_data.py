@@ -122,7 +122,7 @@ def save_data_to_db(**kwargs):
 
                 # create the column strings
                 column_data = [
-                    DataCleaningUtil.construct_column_strings(
+                    PostgresOperations.construct_column_strings(
                         item,
                         primary_key
                     ) for item in form.get('fields')
