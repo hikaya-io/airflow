@@ -138,23 +138,21 @@ class DataCleaningUtil:
         return row
 
     @staticmethod
-    def json_stringify_colum_data(row):
+    def json_stringify_colum_data(row, fields=None):
         """
         stringify json object to prevent postgress from complaining
         :param row:
         :return:
         """
-        print('ROW BEFORE', row)
         for key, value in row.items():
             if isinstance(value, (list, dict,)):
                 column_value = row.pop(key)
                 if len(list(value)) > 0:
-                    row.setdefault(key, json.dumps(column_value).replace('[', '{').replace(']', '}'))
+                    row.setdefault(key, '{ARRAY' + json.dumps(column_value) + '}')
                 else:
                     row.setdefault(key, None)
 
             if value is not None and isinstance(value, (str,)) and 'uuid:' in str(value):
                 column_value = row.pop(key)
                 row.setdefault(key, column_value.replace('uuid:', '').strip())
-        print('ROW AFTER::::', row)
         return row

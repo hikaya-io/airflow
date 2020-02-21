@@ -101,8 +101,9 @@ def dump_clean_data_to_postgres(primary_key, form, columns, data):
 
     with connection:
         cur = connection.cursor()
-        if KOBO_RECREATE_DB is True:
+        if KOBO_RECREATE_DB == 'True':
             cur.execute("DROP TABLE IF EXISTS " + form.get('form_db_name'))
+
         cur.execute(db_query)
 
         # insert data
@@ -111,13 +112,16 @@ def dump_clean_data_to_postgres(primary_key, form, columns, data):
             [item.get('db_name') for item in form.get('fields')],
             primary_key
         )
-
-        cur.executemany(
-            upsert_query,
-            DataCleaningUtil.update_row_columns(
+        final_data = DataCleaningUtil.update_row_columns(
                 form.get('fields'),
                 cleaned_data
             )
+
+        print('Final Data::::', final_data)
+        print('upsert Query::::', upsert_query)
+        cur.executemany(
+            upsert_query,
+            final_data
         )
         connection.commit()
 
@@ -324,8 +328,8 @@ save_kobo_data_to_db_task = PythonOperator(
     task_id='Save_Kobo_data_to_db',
     provide_context=True,
     python_callable=save_kobo_data_to_db,
-    # on_failure_callback=task_failed_slack_notification,
-    # on_success_callback=task_success_slack_notification,
+    on_failure_callback=task_failed_slack_notification,
+    on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 
@@ -334,8 +338,8 @@ sync_kobo_submissions_on_db_task = PythonOperator(
     task_id='Sync_kobo_data_with_db',
     provide_context=True,
     python_callable=sync_submissions_on_db,
-    # on_failure_callback=task_failed_slack_notification,
-    # on_success_callback=task_success_slack_notification,
+    on_failure_callback=task_failed_slack_notification,
+    on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 

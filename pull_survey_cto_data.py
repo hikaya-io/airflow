@@ -215,7 +215,7 @@ def sync_db_with_server(**context):
                     SURV_DBMS.lower().replace(' ', '') == 'postgresdb'
             ):
                 """
-                Delete data from postgres id DBMS is set to Postgres
+                Delete data from postgres if DBMS is set to Postgres
                 """
                 connection = PostgresOperations.establish_postgres_connection(POSTGRES_DB)
                 db_data_keys = PostgresOperations.get_all_row_ids_in_db(
