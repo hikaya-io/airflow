@@ -79,7 +79,8 @@ def dump_raw_data_to_mongo(db_connection):
                 collection = db_connection[
                     form.get('title').replace(' ', '_').replace('(', ''). replace('(', '').lower().strip()
                 ]
-                collection.insertMany(data)
+                mongo_operations = MongoOperations.construct_mongo_upsert_query(data, '_id')
+                collection.bulk_write(mongo_operations)
     else:
         exit(code=1)
 
