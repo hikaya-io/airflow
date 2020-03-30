@@ -43,7 +43,7 @@ def fetch_data(data_url, enc_key_file=None):
             response_data = requests.post(
                 data_url,
                 files=files,
-                auth=requests.auth.HTTPDigestAuth(SURV_USERNAME, SURV_PASSWORD))
+                auth=requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD))
 
     except Exception as e:
 
@@ -280,14 +280,14 @@ def task_success_slack_notification(context):
         'surveycto'
     )
 
-    failed_alert = SlackWebhookOperator(
-        task_id='slack_test',
+    success_alert = SlackWebhookOperator(
+        task_id='slack_alert_success',
         http_conn_id='slack',
         webhook_token=slack_webhook_token,
         attachments=attachments,
         username='airflow'
     )
-    return failed_alert.execute(context=context)
+    return success_alert.execute(context=context)
 
 
 def task_failed_slack_notification(context):
@@ -299,7 +299,7 @@ def task_failed_slack_notification(context):
     )
 
     failed_alert = SlackWebhookOperator(
-        task_id='slack_test',
+        task_id='slack_alert_failed',
         http_conn_id='slack',
         webhook_token=slack_webhook_token,
         attachments=attachments,

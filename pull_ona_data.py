@@ -291,14 +291,14 @@ def task_success_slack_notification(context):
         'ona'
     )
 
-    failed_alert = SlackWebhookOperator(
-        task_id='slack_test',
+    success_alert = SlackWebhookOperator(
+        task_id='slack_alert_success',
         http_conn_id='slack',
         webhook_token=slack_webhook_token,
         attachments=attachments,
         username='airflow'
     )
-    return failed_alert.execute(context=context)
+    return success_alert.execute(context=context)
 
 
 def task_failed_slack_notification(context):
@@ -310,7 +310,7 @@ def task_failed_slack_notification(context):
     )
 
     failed_alert = SlackWebhookOperator(
-        task_id='slack_test',
+        task_id='slack_alert_failed',
         http_conn_id='slack',
         webhook_token=slack_webhook_token,
         attachments=attachments,
