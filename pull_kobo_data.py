@@ -104,8 +104,7 @@ def dump_clean_data_to_postgres(primary_key, form, columns, data):
         cur = connection.cursor()
         if KOBO_RECREATE_DB == 'True':
             cur.execute("DROP TABLE IF EXISTS " + form.get('form_db_name'))
-
-        cur.execute(db_query)
+            cur.execute(db_query)
 
         # insert data
         upsert_query = PostgresOperations.construct_postgres_upsert_query(

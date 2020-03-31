@@ -100,7 +100,7 @@ def dump_clean_data_to_postgres(primary_key, form, columns, data):
 
     with connection:
         cur = connection.cursor()
-        if ONA_RECREATE_DB is True:
+        if ONA_RECREATE_DB == 'True':
             # destroy DB if exists
             cur.execute("DROP TABLE IF EXISTS " + form.get('name'))
 

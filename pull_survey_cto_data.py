@@ -63,6 +63,7 @@ def get_form_data(form):
     :param form:
     :return:
     """
+    print('FORM::::::::', form)
     if form.get('encrypted', False) is not False:
 
         # Let's pull form records for the encrypted form
@@ -138,7 +139,7 @@ def save_data_to_db(**kwargs):
 
                 with connection:
                     cur = connection.cursor()
-                    if SURV_RECREATE_DB is True:
+                    if SURV_RECREATE_DB == 'True':
                         cur.execute("DROP TABLE IF EXISTS " + form.get('name'))
                         cur.execute(db_query)
 
