@@ -63,7 +63,6 @@ def get_form_data(form):
     :param form:
     :return:
     """
-    print('FORM::::::::', form)
     if form.get('encrypted', False) is not False:
 
         # Let's pull form records for the encrypted form

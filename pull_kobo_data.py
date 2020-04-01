@@ -117,8 +117,6 @@ def dump_clean_data_to_postgres(primary_key, form, columns, data):
                 cleaned_data
             )
 
-        print('Final Data::::', final_data)
-        print('upsert Query::::', upsert_query)
         cur.executemany(
             upsert_query,
             final_data
@@ -129,8 +127,6 @@ def dump_clean_data_to_postgres(primary_key, form, columns, data):
 def dump_clean_data_to_mongo(db_connection, form, data):
     primary_key = form.get('unique_column')
     collection = db_connection[form.get('form_db_name')]
-
-    print('formattedData', data)
 
     # construct clean data for saving
     if len(data) > 0:

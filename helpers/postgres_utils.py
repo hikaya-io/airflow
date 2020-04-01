@@ -84,34 +84,38 @@ class PostgresOperations:
         : param column_data: column meta-data
         : return column_string: Postgres query compatible string
         """
+
+        column_name = column_data.get('name', None)
+
+        if column_name is None:
+            column_name = column_data.get('db_name')
+
         if column_data.get('type', '').lower() == 'int':
-            column_map = column_data.get('name') + ' INT' or column_data.get('db_name') + ' INT'
+            column_map = column_name + ' INT'
 
         elif column_data.get('type', '').lower() == 'decimal':
-            column_map = column_data.get('name') + ' REAL' or column_data.get('db_name') + ' REAL'
+            column_map = column_name + ' REAL'
 
         elif column_data.get('type', '').lower() == 'char':
-            column_map = column_data.get('name') + ' CHAR(' + str(column_data.get('length', 100)) + ')' \
-                         or column_data.get('db_name') + ' CHAR(' + str(column_data.get('length', 100)) + ')'
+            column_map = column_name + ' CHAR(' + str(column_data.get('length', 100)) + ')'
 
         elif column_data.get('type', '').lower() == 'boolean':
-            column_map = column_data.get('name') or column_data.get('db_name') + ' BOOLEAN'
+            column_map = column_name + ' BOOLEAN'
 
         elif column_data.get('type', '').lower() == 'boolean':
-            column_map = column_data.get('name') + ' BOOLEAN' or column_data.get('db_name') + ' BOOLEAN'
+            column_map = column_name + ' BOOLEAN'
 
         elif column_data.get('type', '').lower() == 'array':
-            column_map = column_data.get('name') + ' text[]' or column_data.get('db_name') + ' text[]'
+            column_map = column_name + ' text[]'
 
         elif column_data.get('type', '').lower() == 'object' or \
                 column_data.get('type', '').lower() == 'json':
-            column_map = column_data.get('name') + ' jsonb' or column_data.get('db_name') + ' jsonb'
+            column_map = column_name + ' jsonb'
 
         else:
-            column_map = column_data.get('name') + ' TEXT' or column_data.get('db_name') + ' TEXT'
+            column_map = column_name + ' TEXT'
 
-        if column_data.get('name', '').lower() == str(primary_key).lower() or \
-                column_data.get('db_name', '').lower() == str(primary_key).lower():
+        if column_name.lower() == str(primary_key).lower():
             column_map = '{} UNIQUE'.format(column_map)
 
         return column_map

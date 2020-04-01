@@ -66,7 +66,6 @@ class SlackNotification:
 
         # set footer icon
         footer = cls.set_footer_icon(pipeline)
-        print('footer::::', footer)
         attachments = [
             {
                 'fallback': slack_msg,
