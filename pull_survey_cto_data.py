@@ -37,7 +37,7 @@ def fetch_data(data_url, enc_key_file=None):
         if enc_key_file is None:
             response_data = requests.get(
                 data_url,
-                auth=requests.auth.HTTPDigestAuth(SURV_USERNAME, SURV_PASSWORD))
+                auth=requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD))
         else:
             files = {'private_key': open(enc_key_file, 'rb')}
             response_data = requests.post(
