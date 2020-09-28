@@ -73,3 +73,15 @@ KOBO_DBMS = Variable.get('KOBO_DBMS', default_var=None)
 KOBO_RECREATE_DB = Variable.get('KOBO_RECREATE_DB', default_var=False)
 KOBO_FORMS = Variable.get('KOBO_FORMS', deserialize_json=True, default_var=None)
 KOBO_POSTGRES_DB_NAME = Variable.get('KOBO_POSTGRES_DB_NAME', default_var=None)
+
+"""
+Newdea Variables
+"""
+NEWDEA_BASE_URL = Variable.get(
+    'NEWDEA_BASE_URL', default_var='https://logan.newdea.com/')
+NEWDEA_USERNAME = Variable.get('NEWDEA_USERNAME', default_var='')
+NEWDEA_PASSWORD = Variable.get('NEWDEA_PASSWORD', default_var='')
+FTP_SERVER_HOST = Variable.get('FTP_SERVER_HOST', default_var='')
+FTP_SERVER_USERNAME = Variable.get('FTP_SERVER_USERNAME', default_var='')
+FTP_SERVER_PASSWORD = Variable.get('FTP_SERVER_PASSWORD', default_var='')
+FTP_SERVER_EMAIL = Variable.get('FTP_SERVER_EMAIL', default_var='')

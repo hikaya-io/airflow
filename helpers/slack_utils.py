@@ -27,6 +27,10 @@ class SlackNotification:
         if pipeline.lower() == 'surveycto':
             footer_icon = 'https://www.surveycto.com/wp-content/uploads/2018/04/SurveyCTO-Logo-CMYK.png'
             footer_msg = 'SurveyCTO Pipeline Notification'
+        
+        if pipeline.lower() == 'newdea':
+            footer_icon = 'https://secureservercdn.net/50.62.172.232/35m.944.myftpupload.com/wp-content/uploads/2018/10/Logo_Horizontal_light.png'
+            footer_msg = 'Newdea LWF Data Export Notification'
 
         return dict(
             footer_icon=footer_icon,
