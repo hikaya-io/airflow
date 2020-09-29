@@ -126,10 +126,16 @@ To manually trigger the configured DAG:
 ### Setup
 - Copy all files in the `DAGs` directory into the `dags` directory created above
 - Navigate to the `Docker` directory and run the command below to deploy Airflow:
-  `$ docker-compose -f docker-compose-CeleryExecutor.yml up -d`
+
+  ```$ docker-compose -f docker-compose-CeleryExecutor.yml up -d```
+  
 - To create an admin user:
-  1. execute an interactive bash shell on the Airflow webserver container:
-  `$ docker exec -it docker-airflow_webserver_1 bash`
-  2. use `airflow create_user` [CLI](https://airflow.apache.org/docs/stable/cli-ref#create_user) to create an admin user
-  `$airflow create_user  --role Admin --username admin --email admin --firstname admin --lastname admin --password admin`
+  * execute an interactive bash shell on the Airflow webserver container:
+  
+  ```$ docker exec -it docker-airflow_webserver_1 bash```
+  
+  * use `airflow create_user` [CLI](https://airflow.apache.org/docs/stable/cli-ref#create_user) to create an admin user
+  
+  ``` $ airflow create_user  --role Admin --username admin --email admin --firstname admin --lastname admin --password admin```
+  
 - Login using the user create above and load variables
