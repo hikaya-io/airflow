@@ -173,7 +173,6 @@ def export_newdea_db(**context):
             wait_count += 1
             driver.refresh()
 
-
 def task_success_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
     attachments = slack_notification.construct_slack_message(
@@ -191,7 +190,6 @@ def task_success_slack_notification(context):
     )
     return success_alert.execute(context=context)
 
-
 def task_failed_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
     attachments = slack_notification.construct_slack_message(
@@ -207,7 +205,6 @@ def task_failed_slack_notification(context):
         attachments=attachments,
         username='airflow')
     return failed_alert.execute(context=context)
-
 
 run_data_export_from_newdea = PythonOperator(
     task_id='export_db_from_newdea',

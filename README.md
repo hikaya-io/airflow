@@ -115,3 +115,21 @@ To manually trigger the configured DAG:
  - Confirm triggering by clicking `ok` on the prompt
  
  If all the settings are correct, then your DAG should run successfully.
+
+ ## Docker Airflow Setup (Optional)
+> Even though it is posible to install [Apache Airflow](https://airflow.apache.org/docs/stable/start.html) `pip`, we have to perform more configurations to ensure it is production ready. Deploying Airflow via Docker is definititely faster especilly using the image [puckel/docker-airflow](https://hub.docker.com/r/puckel/docker-airflow); for more information check out [docker-aiflow](https://github.com/puckel/docker-airflow) Github repo.
+
+### Requirements
+- `docker` and `docker-compose` installed. (Create a [Docker Ubuntu DO Droplet](https://marketplace.digitalocean.com/apps/docker))
+- create directory structure `/home/hikaya/dags`
+
+### Setup
+- Copy all files in the `DAGs` directory into the `dags` directory created above
+- Navigate to the `Docker` directory and run the command below to deploy Airflow:
+  `$ docker-compose -f docker-compose-CeleryExecutor.yml up -d`
+- To create an admin user:
+  1. execute an interactive bash shell on the Airflow webserver container:
+  `$ docker exec -it docker-airflow_webserver_1 bash`
+  2. use `airflow create_user` [CLI](https://airflow.apache.org/docs/stable/cli-ref#create_user) to create an admin user
+  `$airflow create_user  --role Admin --username admin --email admin --firstname admin --lastname admin --password admin`
+- Login using the user create above and load variables
