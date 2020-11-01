@@ -22,7 +22,7 @@ clone the DAGs into your `dags` folder by using these commands:
 ## Enable the DAGs
 Navigate to your DAGs page on the`Airflow` UI and refresh to see the new cloned DAGs from `connectors` repo
 
-Turn on whichever the DAG you want to run.
+Turn on whichever DAG you want to run.
 
 ## Configurations
 Our connectors uses configurations that are provided by the user on the `Airflow` UI interface.
@@ -30,9 +30,7 @@ Our connectors uses configurations that are provided by the user on the `Airflow
 ### Setting the Variables Manually
 To add these Variables, naviagte to the `Admin -> Variables - ADD/+`
 
-Depending on DAG that you've activated, add the following Variables
-
-
+Depending on which DAG you've activated, add the following Variables:
 
 #### Postgress Settings
 `POSTGRES_DB_PASSWORD = ''` 
@@ -105,9 +103,9 @@ Navigate to the `Admin -> Variables`
 
 Click on Import Variables after selecting the valid JSON file.
 
-NOTE: For this option to work, the file must be a valid flat json file as the one in the template.
+> For this option to work, the file must be a valid flat JSON file as the one in the template.
 
-## Trigger the Dag
+## Trigger the DAG
 To manually trigger the configured DAG:
 
  - Click on the DAG to open the DAG details
@@ -117,7 +115,7 @@ To manually trigger the configured DAG:
  If all the settings are correct, then your DAG should run successfully.
 
  ## Docker Airflow Setup (Optional)
-> Even though it is posible to install [Apache Airflow](https://airflow.apache.org/docs/stable/start.html) `pip`, we have to perform more configurations to ensure it is production ready. Deploying Airflow via Docker is definititely faster especilly using the image [puckel/docker-airflow](https://hub.docker.com/r/puckel/docker-airflow); for more information check out [docker-aiflow](https://github.com/puckel/docker-airflow) Github repo.
+> Even though it is posible to install [Apache Airflow](https://airflow.apache.org/docs/stable/start.html) `pip`, we have to perform more configurations to ensure it is production ready. Deploying Airflow via Docker is definititely faster especially using the image [puckel/docker-airflow](https://hub.docker.com/r/puckel/docker-airflow); for more information check out [docker-airflow](https://github.com/puckel/docker-airflow) Github repo.
 
 ### Requirements
 - `docker` and `docker-compose` installed. (Create a [Docker Ubuntu DO Droplet](https://marketplace.digitalocean.com/apps/docker))
@@ -127,15 +125,15 @@ To manually trigger the configured DAG:
 - Copy all files in the `DAGs` directory into the `dags` directory created above
 - Navigate to the `Docker` directory and run the command below to deploy Airflow:
 
-  ```$ docker-compose -f docker-compose-CeleryExecutor.yml up -d```
+  ```docker-compose -f docker-compose-CeleryExecutor.yml up -d```
   
 - To create an admin user:
   * execute an interactive bash shell on the Airflow webserver container:
   
-  ```$ docker exec -it docker-airflow_webserver_1 bash```
+  ```docker exec -it docker-airflow_webserver_1 bash```
   
   * use `airflow create_user` [CLI](https://airflow.apache.org/docs/stable/cli-ref#create_user) to create an admin user
   
-  ``` $ airflow create_user  --role Admin --username admin --email admin --firstname admin --lastname admin --password admin```
+  ```airflow create_user  --role Admin --username admin --email admin --firstname admin --lastname admin --password admin```
   
-- Login using the user create above and load variables
+- Login using the user created above and load the variables
