@@ -1,9 +1,9 @@
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
-from airflow.operators.bash_operator import BashOperator
+from airflow.contrib.operators.ssh_operator import SSHOperator
+from airflow.contrib.hooks import SSHHook
 from airflow.hooks.base_hook import BaseHook
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
-from airflow.models import Variable
 from airflow.utils.dates import days_ago
 
 from selenium import webdriver
@@ -19,6 +19,7 @@ from helpers.slack_utils import (SlackNotification, )
 from helpers.configs import (
     NEWDEA_BASE_URL, NEWDEA_USERNAME, NEWDEA_PASSWORD, FTP_SERVER_HOST, DAG_EMAIL,
     FTP_SERVER_USERNAME, FTP_SERVER_PASSWORD, FTP_SERVER_EMAIL, SLACK_CONN_ID,
+    MSSQL_USERNAME, MSSQL_PASSWORD
 )
 
 """
@@ -52,10 +53,11 @@ default_args = {
 dag = DAG(
     'dots_newdea_LWF_data_export',
     default_args=default_args,
-    schedule_interval="* * 1 * *",
+    schedule_interval=timedelta(7),
     catchup=False
 )
 
+sshHook = SSHHook(ssh_conn_id="ftp_msql_server")
 slack_notification = SlackNotification()
 
 def export_newdea_db(**context):
@@ -175,10 +177,11 @@ def export_newdea_db(**context):
 
 def task_success_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
+    att_pipeline = 'mssql' if context['task_instance'].task_id == 'restore_newdea_db' else 'newdea'
     attachments = slack_notification.construct_slack_message(
         context,
         'success',
-        'newdea'
+        att_pipeline
     )
 
     success_alert = SlackWebhookOperator(
@@ -192,10 +195,11 @@ def task_success_slack_notification(context):
 
 def task_failed_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
+    att_pipeline = 'mssql' if context['task_instance'].task_id == 'restore_newdea_db' else 'newdea'
     attachments = slack_notification.construct_slack_message(
         context,
         'failed',
-        'newdea'
+        att_pipeline
     )
 
     failed_alert = SlackWebhookOperator(
@@ -206,6 +210,50 @@ def task_failed_slack_notification(context):
         username='airflow')
     return failed_alert.execute(context=context)
 
+    failed_alert = SlackWebhookOperator(
+        task_id='slack_alert_failed',
+        http_conn_id='slack',
+        webhook_token=slack_webhook_token,
+        attachments=attachments,
+        username='airflow')
+    return failed_alert.execute(context=context)
+
+restore_DB_command = """
+set -e
+cd /home/dots/
+unset -v latest_export
+rm -fv *.bak
+for file in *.bak.zip; do
+  [[ $file -nt $latest_export ]] && latest_export=$file
+done
+
+export_file=`echo $latest_export | cut -d'.' -f 1`
+
+if unzip -t $export_file".bak.zip"
+then
+echo -e "\n"$(date -u): "NEWDEA DB RESTORE STARTED (Using file: $latest_export)"
+backupfile=$export_file".bak"
+unzip $export_file".bak.zip"
+
+cat > temp.sql <<- EOM
+USE master;
+GO
+ALTER DATABASE newdea_db SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+RESTORE DATABASE [newdea_db] FROM  DISK = N'/home/dots/exported_file.bak'
+ALTER DATABASE newdea_db SET MULTI_USER;
+GO
+EOM
+
+sed -i "s/exported_file.bak/$backupfile/g" temp.sql
+sqlcmd -S localhost -U {} -P {} -i temp.sql
+rm -f temp.sql $backupfile export_backup/*
+mv $export_file".bak.zip" export_backup/
+
+echo $(date -u): "NEWDEA DB RESTORE ENDED"
+
+fi
+""".format(MSSQL_USERNAME, MSSQL_PASSWORD)
+
 run_data_export_from_newdea = PythonOperator(
     task_id='export_db_from_newdea',
     provide_context=True,
@@ -215,13 +263,13 @@ run_data_export_from_newdea = PythonOperator(
     dag=dag
 )
 
-# Place Holder BashOperator task
-restore_newdea_db = BashOperator(
+restore_newdea_db = SSHOperator(
     task_id='restore_newdea_db',
-    depends_on_past=False,
-    bash_command='echo "Creating Container..." && sleep 5 ',
+    command=restore_DB_command,
+    ssh_hook=sshHook,
+    on_failure_callback=task_failed_slack_notification,
+    on_success_callback=task_success_slack_notification,
     dag=dag,
 )
-
 
 run_data_export_from_newdea >> restore_newdea_db

@@ -85,3 +85,9 @@ FTP_SERVER_HOST = Variable.get('FTP_SERVER_HOST', default_var='')
 FTP_SERVER_USERNAME = Variable.get('FTP_SERVER_USERNAME', default_var='')
 FTP_SERVER_PASSWORD = Variable.get('FTP_SERVER_PASSWORD', default_var='')
 FTP_SERVER_EMAIL = Variable.get('FTP_SERVER_EMAIL', default_var='')
+
+"""
+SQL Server Variables
+"""
+MSSQL_USERNAME = Variable.get('MSSQL_USERNAME', default_var='')
+MSSQL_PASSWORD = Variable.get('MSSQL_PASSWORD', default_var='')
