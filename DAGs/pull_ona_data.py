@@ -7,7 +7,7 @@ import requests
 
 from helpers.dag_utils import (DagUtility,)
 from helpers.mongo_utils import (MongoOperations,)
-from helpers.utils import (DataCleaningUtil,)
+from helpers.utils import (DataCleaningUtil, logger)
 from helpers.postgres_utils import (PostgresOperations,)
 from helpers.slack_utils import (SlackNotification, )
 from helpers.configs import (
@@ -25,6 +25,7 @@ dag = DAG(
 def get_ona_projects():
     """
     load ONA projects from ONA API
+    TODO Handle failed requests
     """
     response = requests.get(
         '{}/projects'.format(ONA_API_URL),
@@ -69,8 +70,8 @@ def clean_form_data_columns(row, table_fields):
 
 def dump_raw_data_to_mongo(db_connection):
     if ONA_DBMS is None or (
-            ONA_DBMS is not None and (
-            ONA_DBMS.lower() == 'mongo' or ONA_DBMS.lower() == 'mongodb')
+        ONA_DBMS is not None and (
+        ONA_DBMS.lower() == 'mongo' or ONA_DBMS.lower() == 'mongodb')
     ):
         ona_projects = get_ona_projects()
         for project in ona_projects:
@@ -81,6 +82,7 @@ def dump_raw_data_to_mongo(db_connection):
                     mongo_operations = MongoOperations.construct_mongo_upsert_query(data, '_id')
                     collection.bulk_write(mongo_operations)
     else:
+        logger.error('Error while dumping raw data to MongoDB. Exiting...')
         exit(code=1)
 
 
@@ -169,7 +171,7 @@ def save_ona_data_to_db(**context):
 
             if isinstance(response_data, (list,)) and len(response_data):
                 if ONA_DBMS is not None and (
-                        ONA_DBMS.lower() == 'postgres' or ONA_DBMS.lower() == 'postgresdb'
+                    ONA_DBMS.lower() == 'postgres' or ONA_DBMS.lower() == 'postgresdb'
                 ):
                     """
                     Dump data to postgres 
@@ -192,6 +194,7 @@ def save_ona_data_to_db(**context):
                     dump_clean_data_to_mongo(db_connection, form, response_data)
                     success_forms += 1
             else:
+                logger.info('The form {} has no data'.format(form.get('name')))
                 print(dict(message='The form {} has no data'.format(form.get('name'))))
 
         if success_forms == all_forms:
@@ -224,7 +227,8 @@ def sync_submissions_on_db(**context):
             api_data_keys = [item.get(primary_key) for item in response_data]
 
             if ONA_DBMS is not None and (
-                    ONA_DBMS.lower() == 'postgres' or ONA_DBMS.lower().replace(' ', '') == 'postgresdb'):
+                ONA_DBMS.lower() == 'postgres' or ONA_DBMS.lower().replace(' ', '') == 'postgresdb'
+            ):
                 """
                 Delete data from postgres id DBMS is set to Postgres
                 """
@@ -277,10 +281,12 @@ def sync_submissions_on_db(**context):
         if len(deleted_data) > 0:
             return dict(report=deleted_data)
         else:
+            logger.info('All Data is up to date')
             return dict(message='All Data is up to date!!')
 
     else:
-        return dict(failure='Data dumping failed')
+        # logger.info('Data dumping failed')
+        return dict(failure='Data dumping failed') # ? Is this method for Data dumping
 
 
 def task_success_slack_notification(context):
