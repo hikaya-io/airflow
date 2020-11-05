@@ -5,7 +5,7 @@ from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperato
 
 import requests
 
-from helpers.utils import (DataCleaningUtil, )
+from helpers.utils import (DataCleaningUtil, logger)
 from helpers.slack_utils import (SlackNotification,)
 from helpers.mongo_utils import (MongoOperations,)
 from helpers.postgres_utils import (PostgresOperations,)
@@ -46,7 +46,7 @@ def fetch_data(data_url, enc_key_file=None):
                 auth=requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD))
 
     except Exception as e:
-
+        logger.error('Fetching data from SurveyCTO failed')
         response_data = dict(success=False, error=e)
 
     return response_data
@@ -59,6 +59,7 @@ def get_form_url(form_id, last_date, status):
 
 def get_form_data(form):
     """
+    TODO properly handle invalid responses (e.g Bad Credentials)
     load form data from SurveyCTO API
     :param form:
     :return:
@@ -86,7 +87,7 @@ def get_form_data(form):
         response = fetch_data(url)
         response_data = response.json()
 
-    return  response_data
+    return response_data
 
 
 def save_data_to_db(**kwargs):
@@ -178,11 +179,13 @@ def save_data_to_db(**kwargs):
                 success_forms += 1
 
         else:
-            print(dict(message='The form {} has no data'.format(form.get('name'))))
+            logger.error('The form {} has no data'.format(form.get('name')))
+            # print(dict(message='The form {} has no data'.format(form.get('name'))))
 
     if success_forms == all_forms:
         return dict(success=True)
     else:
+        logger.error('Not all forms data loaded')
         return dict(failure='Not all forms data loaded')
 
 
@@ -264,11 +267,14 @@ def sync_db_with_server(**context):
                     collection.delete_many({'{}'.format(primary_key): {'$in': deleted_ids}})
 
         if len(deleted_data) > 0:
+            logger.info('Data has been deleted')
             return dict(report=deleted_data)
         else:
+            logger.info('All Data is up to date')
             return dict(message='All Data is up to date!!')
 
     else:
+        logger.error('Data dumping failed')
         return dict(failure='Data dumping failed')
 
 
