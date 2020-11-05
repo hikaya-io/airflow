@@ -4,6 +4,10 @@ Data Cleaning Utilities
 """
 from pandas.io.json._normalize import nested_to_record
 import json
+import logging
+
+# Imported in other files
+logger = logging.getLogger("airflow.task")
 
 class DataCleaningUtil:
     def __init__(self):
@@ -133,6 +137,9 @@ class DataCleaningUtil:
         :param primary_key: primary key
         :return row: row object with cleaned key field
         """
+        logger.error('clean_key_field method')
+        logger.error(row)
+        logger.error(primary_key)
         row[primary_key] = row.get(primary_key).replace('uuid:', '').strip()
 
         return row
