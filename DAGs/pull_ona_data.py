@@ -285,7 +285,7 @@ def sync_submissions_on_db(**context):
             return dict(message='All Data is up to date!!')
 
     else:
-        # logger.info('Data dumping failed')
+        logger.error('Data dumping failed')
         return dict(failure='Data dumping failed') # ? Is this method for Data dumping
 
 
