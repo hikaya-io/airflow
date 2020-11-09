@@ -214,8 +214,8 @@ def sync_db_with_server(**context):
             ]
 
             if SURV_DBMS is not None and (
-                    SURV_DBMS.lower() == 'postgres' or
-                    SURV_DBMS.lower().replace(' ', '') == 'postgresdb'
+                SURV_DBMS.lower() == 'postgres' or
+                SURV_DBMS.lower().replace(' ', '') == 'postgresdb'
             ):
                 """
                 Delete data from postgres if DBMS is set to Postgres
