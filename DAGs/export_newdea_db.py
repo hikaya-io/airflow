@@ -52,7 +52,7 @@ default_args = {
 dag = DAG(
     'dots_newdea_LWF_data_export',
     default_args=default_args,
-    schedule_interval="0 0 * * 7",
+    schedule_interval="0 0 * * 2",
     catchup=False
 )
 
