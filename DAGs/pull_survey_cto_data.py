@@ -47,6 +47,7 @@ def fetch_data(data_url, enc_key_file=None):
 
     except Exception as e:
         logger.error('Fetching data from SurveyCTO failed')
+        logger.exception(e)
         response_data = dict(success=False, error=e)
 
     return response_data
