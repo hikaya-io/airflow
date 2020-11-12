@@ -11,7 +11,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 
 import time
 
@@ -42,7 +42,7 @@ class NewdeaError(Exception):
 default_args = {
     'owner': 'Hikaya',
     'depends_on_past': False,
-    'start_date': days_ago(1),
+    'start_date': datetime(2020, 11, 8),
     'email': [DAG_EMAIL],
     'email_on_failure': False,
     'email_on_retry': False,
@@ -51,10 +51,9 @@ default_args = {
 }
 
 dag = DAG(
-    'dots_newdea_LWF_data_export',
+    'newdea_LWF_data_export_pipeline',
     default_args=default_args,
-    schedule_interval=timedelta(7),
-    catchup=False
+    schedule_interval='0 0 * * 0,3',
 )
 
 sshHook = SSHHook(ssh_conn_id="ftp_msql_server")
