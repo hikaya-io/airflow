@@ -31,6 +31,11 @@ class SlackNotification:
         if pipeline.lower() == 'newdea':
             footer_icon = 'https://secureservercdn.net/50.62.172.232/35m.944.myftpupload.com/wp-content/uploads/2018/10/Logo_Horizontal_light.png'
             footer_msg = 'Newdea LWF Data Export Notification'
+        
+        if pipeline.lower() == 'mssql':
+            footer_icon = 'https://cdn.worldvectorlogo.com/logos/microsoft-sql-server.svg'
+            footer_msg = 'SQL Server Data Restore Notification'
+
 
         return dict(
             footer_icon=footer_icon,
