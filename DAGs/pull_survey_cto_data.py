@@ -29,7 +29,7 @@ PIPELINE = 'surveycto'
 default_args = {
     'owner': 'Hikaya-Dots',
     'depends_on_past': False,
-    'start_date': datetime(2019, 10, 21),
+    'start_date': get_daily_start_date(),
     'catchup': False,
     'retries': 2,
     'retry_delay': timedelta(minutes=5),

@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta, time
 
 from airflow.hooks.slack import SlackWebHook
 
@@ -8,6 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 def notify(status, pipeline, alert=True, connection='slack'):
+    """
+    callback function used to alert of task failures and successes
+    """
+
     def callback(context):
         task_id = context.get('task_instance').task_id
         dag_id = context.get('task_instance').dag_id
@@ -25,3 +30,14 @@ def notify(status, pipeline, alert=True, connection='slack'):
             logger.info(f'DAG: {dag_id}, task: {task_id}, status: {status}')
 
     return callback
+
+
+def get_daily_start_date(days=-1, hour=0, min=0):
+    """
+    set start_date to most recent occurrence
+    """
+
+    dt = datetime.utcnow()
+    desired_start_date = dt + timedelta(days=days)
+
+    return datetime.combine(desired_start_date, time(hour, min))
