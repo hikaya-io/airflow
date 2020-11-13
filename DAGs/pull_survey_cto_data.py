@@ -8,9 +8,9 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
 
 from helpers.utils import DataCleaningUtil
-from helpers.slack_utils import SlackNotification
 from helpers.mongo_utils import MongoOperations
 from helpers.postgres_utils import PostgresOperations
+from helpers.task_utils import notify
 from helpers.configs import (
     SURV_SERVER_NAME,
     SURV_USERNAME,
@@ -19,7 +19,6 @@ from helpers.configs import (
     SURV_DBMS,
     SURV_MONGO_DB_NAME,
     SURV_RECREATE_DB,
-    SLACK_CONN_ID,
     SURV_MONGO_URI,
     POSTGRES_DB,
 )
@@ -27,6 +26,7 @@ from helpers.configs import (
 logger = logging.getLogger(__name__)
 
 DAG_NAME = 'dots_survey_cto_data_pipeline'
+PIPELINE = 'surveycto'
 
 default_args = {
     'owner': 'Hikaya-Dots',
@@ -35,11 +35,11 @@ default_args = {
     'catchup': False,
     'retries': 2,
     'retry_delay': timedelta(minutes=5),
+    'on_failure_callback': notify(status='failed', pipeline=PIPELINE),
+    'on_success_callback': notify(status='success', pipeline=PIPELINE)
 }
 
 dag = DAG(DAG_NAME, default_args=default_args)
-
-slack_notification = SlackNotification()
 
 
 def fetch_data(data_url, enc_key_file=None):
@@ -252,39 +252,11 @@ def sync_db_with_server(**context):
         return dict(failure='Data dumping failed')
 
 
-def task_success_slack_notification(context):
-    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    attachments = slack_notification.construct_slack_message(
-        context, 'success', 'surveycto')
-
-    success_alert = SlackWebhookOperator(task_id='slack_alert_success',
-                                         http_conn_id='slack',
-                                         webhook_token=slack_webhook_token,
-                                         attachments=attachments,
-                                         username='airflow')
-    return success_alert.execute(context=context)
-
-
-def task_failed_slack_notification(context):
-    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    attachments = slack_notification.construct_slack_message(
-        context, 'failed', 'surveycto')
-
-    failed_alert = SlackWebhookOperator(task_id='slack_alert_failed',
-                                        http_conn_id='slack',
-                                        webhook_token=slack_webhook_token,
-                                        attachments=attachments,
-                                        username='airflow')
-    return failed_alert.execute(context=context)
-
-
 # TASKS
 save_data_to_db_task = PythonOperator(
     task_id='Save_data_to_DB',
     provide_context=True,
     python_callable=save_data_to_db,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 
@@ -292,8 +264,6 @@ sync_db_with_server_task = PythonOperator(
     task_id='Sync_DB_With_Server',
     provide_context=True,
     python_callable=sync_db_with_server,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
     dag=dag,
 )
 
