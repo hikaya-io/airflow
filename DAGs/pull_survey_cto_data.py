@@ -1,7 +1,8 @@
+import logging
 import requests
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
 from airflow.hooks.base_hook import BaseHook
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
@@ -23,6 +24,10 @@ from helpers.configs import (
     POSTGRES_DB,
 )
 
+logger = logging.getLogger(__name__)
+
+DAG_NAME = 'dots_survey_cto_data_pipeline'
+
 default_args = {
     'owner': 'Hikaya-Dots',
     'depends_on_past': False,
@@ -32,7 +37,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-dag = DAG('dots_survey_cto_data_pipeline', default_args=default_args)
+dag = DAG(DAG_NAME, default_args=default_args)
 
 slack_notification = SlackNotification()
 
@@ -49,19 +54,20 @@ def fetch_data(data_url, enc_key_file=None):
     try:
 
         if enc_key_file is None:
-            response_data = requests.get(data_url,
-                                         auth=requests.auth.HTTPBasicAuth(
-                                             SURV_USERNAME, SURV_PASSWORD))
+            response = requests.get(data_url,
+                                    auth=requests.auth.HTTPBasicAuth(
+                                        SURV_USERNAME, SURV_PASSWORD))
         else:
             files = {'private_key': open(enc_key_file, 'rb')}
-            response_data = requests.post(data_url,
-                                          files=files,
-                                          auth=requests.auth.HTTPBasicAuth(
-                                              SURV_USERNAME, SURV_PASSWORD))
+            response = requests.post(data_url,
+                                     files=files,
+                                     auth=requests.auth.HTTPBasicAuth(
+                                         SURV_USERNAME, SURV_PASSWORD))
 
     except Exception as e:
+        raise AirflowException(f'Fetch data failed with exception: {e}')
 
-        response_data = dict(success=False, error=e)
+    response_data = response.json()
 
     return response_data
 
@@ -78,30 +84,14 @@ def get_form_data(form):
     :param form:
     :return:
     """
-    if form.get('encrypted', False) is not False:
 
-        # Let's pull form records for the encrypted form
-        url = get_form_url(
-            form.get('form_id', ''), form.get('last_date', 0),
-            '|'.join(form.get('statuses', ['approved', 'pending'])))
-        """
-        With the encryption key, we expect to see all the fields included in the response.
-        If we don't include the encryption key the API will only return the unencrypted fields.
-        """
-        response = fetch_data(url, form.get('keyfile', None))
-        response_data = response.json()
+    url = get_form_url(form.get('form_id', ''), form.get('last_date', 0),
+                       '|'.join(form.get('statuses', ['approved', 'pending'])))
 
-    else:
-        """
-        Pulling data for the unencrypted form will be the exact same except we don't
-        provide a keyfile for the pull_data function
-        """
-        url = get_form_url(
-            form.get('form_id', ''), form.get('last_date', 0),
-            '|'.join(form.get('statuses', ['approved', 'pending'])))
+    response = fetch_data(url, form.get('keyfile'))
+    response_data = response.json()
 
-        response = fetch_data(url)
-        response_data = response.json()
+    logger.info('Get form data successful')
 
     return response_data
 
