@@ -1,4 +1,5 @@
 import requests
+from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
@@ -9,7 +10,6 @@ from helpers.utils import DataCleaningUtil
 from helpers.slack_utils import SlackNotification
 from helpers.mongo_utils import MongoOperations
 from helpers.postgres_utils import PostgresOperations
-from helpers.dag_utils import DagUtility
 from helpers.configs import (
     SURV_SERVER_NAME,
     SURV_USERNAME,
@@ -23,8 +23,16 @@ from helpers.configs import (
     POSTGRES_DB,
 )
 
-dag = DAG('dots_survey_cto_data_pipeline',
-          default_args=DagUtility.get_dag_default_args())
+default_args = {
+    'owner': 'Hikaya-Dots',
+    'depends_on_past': False,
+    'start_date': datetime(2019, 10, 21),
+    'catchup': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+}
+
+dag = DAG('dots_survey_cto_data_pipeline', default_args=default_args)
 
 slack_notification = SlackNotification()
 
