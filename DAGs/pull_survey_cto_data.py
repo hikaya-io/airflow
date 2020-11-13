@@ -1,16 +1,14 @@
 import logging
 import requests
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
-from airflow.hooks.base_hook import BaseHook
-from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
 
 from helpers.utils import DataCleaningUtil
 from helpers.mongo_utils import MongoOperations
 from helpers.postgres_utils import PostgresOperations
-from helpers.task_utils import notify
+from helpers.task_utils import notify, get_daily_start_date
 from helpers.configs import (
     SURV_SERVER_NAME,
     SURV_USERNAME,
@@ -168,14 +166,12 @@ def save_data_to_db(**kwargs):
                 success_forms += 1
 
         else:
-            print(
-                dict(message='The form {} has no data'.format(form.get(
-                    'name'))))
+            logger.warn('The form {} has no data'.format(form.get('name')))
 
     if success_forms == all_forms:
         return dict(success=True)
     else:
-        return dict(failure='Not all forms data loaded')
+        raise AirflowException('Not all forms data loaded')
 
 
 def sync_db_with_server(**context):
@@ -186,7 +182,7 @@ def sync_db_with_server(**context):
     """
     success_dump = context['ti'].xcom_pull(task_ids='Save_data_to_DB')
 
-    if success_dump.get('success', None) is not None:
+    if success_dump.get('success'):
         deleted_items = []
         deleted_data = []
         for form in SURV_FORMS:
