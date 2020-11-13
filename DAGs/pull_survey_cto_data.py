@@ -37,8 +37,6 @@ default_args = {
     'on_success_callback': notify(status='success', pipeline=PIPELINE)
 }
 
-dag = DAG(DAG_NAME, default_args=default_args)
-
 
 def fetch_data(data_url, enc_key_file=None):
     """
@@ -245,22 +243,23 @@ def sync_db_with_server(**context):
             return dict(message='All Data is up to date!!')
 
     else:
-        return dict(failure='Data dumping failed')
+        raise AirflowException('Data dumping failed')
 
 
-# TASKS
-save_data_to_db_task = PythonOperator(
-    task_id='Save_data_to_DB',
-    provide_context=True,
-    python_callable=save_data_to_db,
-    dag=dag,
-)
+with DAG(DAG_NAME, default_args=default_args,
+         schedule_interval='@daily') as dag:
 
-sync_db_with_server_task = PythonOperator(
-    task_id='Sync_DB_With_Server',
-    provide_context=True,
-    python_callable=sync_db_with_server,
-    dag=dag,
-)
+    save_data_to_db_task = PythonOperator(
+        task_id='Save_data_to_DB',
+        python_callable=save_data_to_db,
+        dag=dag,
+    )
 
-save_data_to_db_task >> sync_db_with_server_task
+    sync_db_with_server_task = PythonOperator(
+        task_id='Sync_DB_With_Server',
+        provide_context=True,
+        python_callable=sync_db_with_server,
+        dag=dag,
+    )
+
+    save_data_to_db_task >> sync_db_with_server_task
