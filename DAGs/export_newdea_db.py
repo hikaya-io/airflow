@@ -11,6 +11,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
 from datetime import datetime, timedelta
 
 import time
@@ -25,6 +26,8 @@ from helpers.configs import (
 """
 Custom expception for Newdea issues
 """
+
+
 class NewdeaError(Exception):
     def __init__(self, *args):
         if args:
@@ -46,6 +49,7 @@ default_args = {
     'email': [DAG_EMAIL],
     'email_on_failure': False,
     'email_on_retry': False,
+    'catchup_by_default': False,
     'retries': 1,
     'retry_delay': timedelta(minutes=30),
 }
@@ -53,11 +57,12 @@ default_args = {
 dag = DAG(
     'newdea_LWF_data_export_pipeline',
     default_args=default_args,
-    schedule_interval='0 0 * * 0,3',
+    schedule_interval='0 5 * * 1-5',
 )
 
 sshHook = SSHHook(ssh_conn_id="ftp_msql_server")
 slack_notification = SlackNotification()
+
 
 def export_newdea_db(**context):
     chrome_options = Options()
@@ -85,6 +90,18 @@ def export_newdea_db(**context):
     txt_password.clear()
     txt_password.send_keys(NEWDEA_PASSWORD)
     btn_signin.click()
+
+    # Check if password reset page is displayed
+    try:
+        txt_password_reset_required = driver.find_element(
+            By.XPATH, '//*[@id="M_C_CPC_ChangePasswordTitleText"]')
+        btn_change_password_later = driver.find_element(
+            By.XPATH, '//*[@id="M_C_CPC_ChangePasswordControl_ChangePasswordContainerID_CancelPushButton"]')
+        print("Reset Password page is displayed.")
+        btn_change_password_later.click()
+    except NoSuchElementException:
+        print("Reset Password page is not displayed")
+
     assert 'Newdea Project Center' in driver.title
 
     print('Verify no active export via Data Export Log Page')
@@ -174,6 +191,7 @@ def export_newdea_db(**context):
             wait_count += 1
             driver.refresh()
 
+
 def task_success_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
     att_pipeline = 'mssql' if context['task_instance'].task_id == 'restore_newdea_db' else 'newdea'
@@ -191,6 +209,7 @@ def task_success_slack_notification(context):
         username='airflow'
     )
     return success_alert.execute(context=context)
+
 
 def task_failed_slack_notification(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
@@ -216,6 +235,7 @@ def task_failed_slack_notification(context):
         attachments=attachments,
         username='airflow')
     return failed_alert.execute(context=context)
+
 
 restore_DB_command = """
 set -e
