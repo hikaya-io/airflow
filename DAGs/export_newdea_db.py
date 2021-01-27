@@ -185,7 +185,7 @@ def export_newdea_db(**context):
 
         print('Export done!')
     else:
-        print('Unable to login')
+        raise NewdeaError('Unable to login!')
 
 
 def task_success_slack_notification(context):
