@@ -4,6 +4,10 @@ Data Cleaning Utilities
 """
 from pandas.io.json._normalize import nested_to_record
 import json
+import logging
+
+# Imported in other files
+logger = logging.getLogger("airflow.task")
 
 class DataCleaningUtil:
     def __init__(self):

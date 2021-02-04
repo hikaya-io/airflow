@@ -24,7 +24,7 @@ def notify(status, pipeline, alert=True, connection='slack'):
                 context=context, status=status, pipeline=pipeline)
             slack_hook.post_webhook(attachments)
         elif not alert and status == 'failed':
-            logger.warn(
+            logger.warning(
                 f'DAG failure notification for task {task_id} in DAG {dag_id}')
         else:
             logger.info(f'DAG: {dag_id}, task: {task_id}, status: {status}')
