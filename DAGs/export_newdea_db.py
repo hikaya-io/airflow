@@ -14,6 +14,7 @@ import time
 from bs4 import BeautifulSoup
 from requests import Session
 
+from DAGs.helpers.utils import logger
 from helpers.slack_utils import (SlackNotification, )
 from helpers.configs import (
     NEWDEA_BASE_URL, NEWDEA_USERNAME, NEWDEA_PASSWORD, FTP_SERVER_HOST, DAG_EMAIL,
@@ -156,21 +157,21 @@ def export_newdea_db(**context):
         no_of_checks = 1
         while active_export:
             if no_of_checks == 3:
-                print('Done 3 checks already. Terminating..')
+                logger.info('Done 3 checks already. Terminating..')
                 return
 
-            print('Export ongoing, sleeping for 3 minutes...')
+            logger.info('Export ongoing, sleeping for 3 minutes...')
             time.sleep(180)
             active_export = check_for_active_export()
             no_of_checks += 1
 
-        print('No ongoing export found. Starting new export process...')
+        logger.info('No ongoing export found. Starting new export process...')
         active_export = do_export()
         no_of_checks = 1
         while active_export:
-            print(f'Total wait time: {no_of_checks - 1} min(s)')
+            logger.info(f'Total wait time: {no_of_checks - 1} min(s)')
             if no_of_checks == 60:
-                print('Done 60 checks already. Terminating..')
+                logger.info('Done 60 checks already. Terminating..')
                 raise NewdeaError('Export taking too long to complete!')
 
             active_export, status = get_export_status()
@@ -183,7 +184,7 @@ def export_newdea_db(**context):
 
             time.sleep(60)
 
-        print('Export done!')
+        logger.info('Export done!')
     else:
         raise NewdeaError('Unable to login!')
 
