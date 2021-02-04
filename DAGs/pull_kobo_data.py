@@ -195,7 +195,6 @@ def save_kobo_data_to_db(**context):
                     success_forms += 1
             else:
                 logger.info('The form {} has no data'.format(form.get('name')))
-                print(dict(message='The form {} has no data'.format(form.get('name'))))
 
         if success_forms == all_forms:
             return dict(success=True)

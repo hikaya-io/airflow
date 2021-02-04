@@ -166,7 +166,6 @@ def save_data_to_db(**kwargs):
 
         else:
             logger.error('The form {} has no data'.format(form.get('name')))
-            # print(dict(message='The form {} has no data'.format(form.get('name'))))
 
     if success_forms == all_forms:
         return dict(success=True)

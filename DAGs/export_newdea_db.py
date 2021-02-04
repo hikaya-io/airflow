@@ -69,7 +69,7 @@ session.headers['Accept'] = 'text/html,application/xhtml+xml,application/xml;q=0
 
 
 def login():
-    print('Logging in...')
+    logger.info('Logging in...')
     res = session.get(NEWDEA_BASE_URL)
     if res.ok:
         bs = BeautifulSoup(res.text, 'html.parser')
