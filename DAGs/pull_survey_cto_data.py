@@ -1,27 +1,42 @@
+import logging
+import requests
+from datetime import timedelta
+
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
-from airflow.hooks.base_hook import BaseHook
-from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
-
-import requests
-
 from helpers.utils import (DataCleaningUtil, logger)
-from helpers.slack_utils import (SlackNotification,)
-from helpers.mongo_utils import (MongoOperations,)
-from helpers.postgres_utils import (PostgresOperations,)
-from helpers.dag_utils import (DagUtility,)
+from helpers.mongo_utils import MongoOperations
+from helpers.postgres_utils import PostgresOperations
+
+from helpers.task_utils import notify, get_daily_start_date
 from helpers.configs import (
-    SURV_SERVER_NAME, SURV_USERNAME, SURV_PASSWORD, SURV_FORMS, SURV_DBMS,
-    SURV_MONGO_DB_NAME, SURV_RECREATE_DB, SLACK_CONN_ID, SURV_MONGO_URI, POSTGRES_DB,
+    SURV_SERVER_NAME,
+    SURV_USERNAME,
+    SURV_PASSWORD,
+    SURV_FORMS,
+    SURV_DBMS,
+    SURV_MONGO_DB_NAME,
+    SURV_RECREATE_DB,
+    SURV_MONGO_URI,
+    POSTGRES_DB,
 )
 
+logger = logging.getLogger(__name__)
 
-dag = DAG(
-    'dots_survey_cto_data_pipeline',
-    default_args=DagUtility.get_dag_default_args()
-)
+DAG_NAME = 'dots_survey_cto_data_pipeline'
+PIPELINE = 'surveycto'
 
-slack_notification = SlackNotification()
+default_args = {
+    'owner': 'Hikaya-Dots',
+    'depends_on_past': False,
+    'start_date': get_daily_start_date(),
+    'catchup': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'on_failure_callback': notify(status='failed', pipeline=PIPELINE),
+    'on_success_callback': notify(status='success', pipeline=PIPELINE)
+}
+
 
 def fetch_data(data_url, enc_key_file=None):
     """
@@ -35,15 +50,15 @@ def fetch_data(data_url, enc_key_file=None):
     try:
 
         if enc_key_file is None:
-            response_data = requests.get(
-                data_url,
-                auth=requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD))
+            response = requests.get(data_url,
+                                    auth=requests.auth.HTTPBasicAuth(
+                                        SURV_USERNAME, SURV_PASSWORD))
         else:
             files = {'private_key': open(enc_key_file, 'rb')}
-            response_data = requests.post(
-                data_url,
-                files=files,
-                auth=requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD))
+            response = requests.post(data_url,
+                                     files=files,
+                                     auth=requests.auth.HTTPBasicAuth(
+                                         SURV_USERNAME, SURV_PASSWORD))
 
     except Exception as e:
         logger.error('Fetching data from SurveyCTO failed')
@@ -58,6 +73,7 @@ def get_form_url(form_id, last_date, status):
     form_url = f'https://{SURV_SERVER_NAME}.surveycto.com/api/v2/forms/data/wide/json/{form_id}?date={last_date}&r={status}'
     return form_url
 
+
 def get_form_data(form):
     """
     TODO properly handle invalid responses (e.g Bad Credentials)
@@ -65,28 +81,14 @@ def get_form_data(form):
     :param form:
     :return:
     """
-    if form.get('encrypted', False) is not False:
 
-        # Let's pull form records for the encrypted form
-        url = get_form_url(form.get('form_id', ''), form.get('last_date', 0),
-            '|'.join(form.get('statuses', ['approved', 'pending'])))
-        """
-        With the encryption key, we expect to see all the fields included in the response.
-        If we don't include the encryption key the API will only return the unencrypted fields.
-        """
-        response = fetch_data(url, form.get('keyfile', None))
-        response_data = response.json()
+    url = get_form_url(form.get('form_id', ''), form.get('last_date', 0),
+                       '|'.join(form.get('statuses', ['approved', 'pending'])))
 
-    else:
-        """
-        Pulling data for the unencrypted form will be the exact same except we don't
-        provide a keyfile for the pull_data function
-        """
-        url = get_form_url(form.get('form_id', ''), form.get('last_date', 0),
-            '|'.join(form.get('statuses', ['approved', 'pending'])))
+    response = fetch_data(url, form.get('keyfile'))
+    response_data = response.json()
 
-        response = fetch_data(url)
-        response_data = response.json()
+    logger.info('Get form data successful')
 
     return response_data
 
@@ -106,18 +108,15 @@ def save_data_to_db(**kwargs):
         api_data = get_form_data(form)
 
         response_data = [
-            DataCleaningUtil.clean_key_field(
-                item,
-                primary_key
-            ) for item in api_data
+            DataCleaningUtil.clean_key_field(item, primary_key)
+            for item in api_data
         ]
 
-        if isinstance(response_data, (list,)) and len(response_data):
+        if isinstance(response_data, (list, )) and len(response_data):
 
-            if SURV_DBMS is not None and (
-                    SURV_DBMS.lower() == 'postgres' or
-                    SURV_DBMS.lower().replace(' ', '') == 'postgresdb'
-            ):
+            if SURV_DBMS is not None and (SURV_DBMS.lower() == 'postgres'
+                                          or SURV_DBMS.lower().replace(
+                                              ' ', '') == 'postgresdb'):
                 """
                 Dump data to postgres 
                 """
@@ -125,18 +124,15 @@ def save_data_to_db(**kwargs):
                 # create the column strings
                 column_data = [
                     PostgresOperations.construct_column_strings(
-                        item,
-                        primary_key
-                    ) for item in form.get('fields')
+                        item, primary_key) for item in form.get('fields')
                 ]
 
                 # create the Db
                 db_query = PostgresOperations.construct_postgres_create_table_query(
-                    form.get('name'),
-                    column_data
-                )
+                    form.get('name'), column_data)
 
-                connection = PostgresOperations.establish_postgres_connection(POSTGRES_DB)
+                connection = PostgresOperations.establish_postgres_connection(
+                    POSTGRES_DB)
 
                 with connection:
                     cur = connection.cursor()
@@ -146,36 +142,25 @@ def save_data_to_db(**kwargs):
 
                     # insert data
                     upsert_query = PostgresOperations.construct_postgres_upsert_query(
-                        form.get('name'),
-                        columns,
-                        primary_key
-                    )
+                        form.get('name'), columns, primary_key)
 
                     cur.executemany(
                         upsert_query,
                         DataCleaningUtil.update_row_columns(
-                            form.get('fields'),
-                            response_data
-                        )
-                    )
+                            form.get('fields'), response_data))
                     connection.commit()
 
                     success_forms += 1
-
 
             else:
                 """
                 Dump Data to MongoDB
                 """
                 mongo_connection = MongoOperations.establish_mongo_connection(
-                    SURV_MONGO_URI,
-                    SURV_MONGO_DB_NAME
-                )
+                    SURV_MONGO_URI, SURV_MONGO_DB_NAME)
                 collection = mongo_connection[form.get('form_id')]
                 mongo_operations = MongoOperations.construct_mongo_upsert_query(
-                    response_data,
-                    primary_key
-                )
+                    response_data, primary_key)
                 collection.bulk_write(mongo_operations)
                 success_forms += 1
 
@@ -198,21 +183,17 @@ def sync_db_with_server(**context):
     """
     success_dump = context['ti'].xcom_pull(task_ids='Save_data_to_DB')
 
-    if success_dump.get('success', None) is not None:
+    if success_dump.get('success'):
         deleted_items = []
         deleted_data = []
         for form in SURV_FORMS:
             primary_key = form.get('unique_column')
 
             response_data = [
-                DataCleaningUtil.clean_key_field(
-                    item,
-                    primary_key
-                ) for item in get_form_data(form)
+                DataCleaningUtil.clean_key_field(item, primary_key)
+                for item in get_form_data(form)
             ]
-            api_data_keys = [
-                item.get(primary_key) for item in response_data
-            ]
+            api_data_keys = [item.get(primary_key) for item in response_data]
 
             if SURV_DBMS is not None and (
                 SURV_DBMS.lower() == 'postgres' or
@@ -221,21 +202,16 @@ def sync_db_with_server(**context):
                 """
                 Delete data from postgres if DBMS is set to Postgres
                 """
-                connection = PostgresOperations.establish_postgres_connection(POSTGRES_DB)
+                connection = PostgresOperations.establish_postgres_connection(
+                    POSTGRES_DB)
                 db_data_keys = PostgresOperations.get_all_row_ids_in_db(
-                    connection,
-                    primary_key,
-                    form.get('name')
-                )
+                    connection, primary_key, form.get('name'))
 
                 deleted_ids = list(set(db_data_keys) - set(api_data_keys))
                 if len(deleted_ids) > 0:
                     # remove deleted items from the db
                     query_string = PostgresOperations.construct_postgres_delete_query(
-                        form.get('name'),
-                        primary_key,
-                        deleted_ids
-                    )
+                        form.get('name'), primary_key, deleted_ids)
 
                     with connection:
                         cur = connection.cursor()
@@ -245,12 +221,9 @@ def sync_db_with_server(**context):
                         connection.commit()
 
                         deleted_items.append(
-                            dict(
-                                keys=deleted_ids,
-                                table=form.get('name'),
-                                number_of_items=len(deleted_ids)
-                            )
-                        )
+                            dict(keys=deleted_ids,
+                                 table=form.get('name'),
+                                 number_of_items=len(deleted_ids)))
 
                     deleted_data.append(dict(success=deleted_items))
             else:
@@ -258,14 +231,15 @@ def sync_db_with_server(**context):
                 delete data from Mongo if DBMS is set to Mongo
                 """
                 mongo_connection = MongoOperations.establish_mongo_connection(
-                    SURV_MONGO_URI,
-                    SURV_MONGO_DB_NAME
-                )
+                    SURV_MONGO_URI, SURV_MONGO_DB_NAME)
                 collection = mongo_connection[form.get('form_id')]
                 ids_in_db = collection.distinct(primary_key)
                 deleted_ids = list(set(ids_in_db) - set(api_data_keys))
                 if len(deleted_ids) > 0:
-                    collection.delete_many({'{}'.format(primary_key): {'$in': deleted_ids}})
+                    collection.delete_many(
+                        {'{}'.format(primary_key): {
+                             '$in': deleted_ids
+                         }})
 
         if len(deleted_data) > 0:
             logger.info('Data has been deleted')
@@ -279,57 +253,20 @@ def sync_db_with_server(**context):
         return dict(failure='Data dumping failed')
 
 
-def task_success_slack_notification(context):
-    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    attachments = slack_notification.construct_slack_message(
-        context,
-        'success',
-        'surveycto'
+with DAG(DAG_NAME, default_args=default_args,
+         schedule_interval='@daily') as dag:
+
+    save_data_to_db_task = PythonOperator(
+        task_id='Save_data_to_DB',
+        python_callable=save_data_to_db,
+        dag=dag,
     )
 
-    success_alert = SlackWebhookOperator(
-        task_id='slack_alert_success',
-        http_conn_id='slack',
-        webhook_token=slack_webhook_token,
-        attachments=attachments,
-        username='airflow'
-    )
-    return success_alert.execute(context=context)
-
-
-def task_failed_slack_notification(context):
-    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    attachments = slack_notification.construct_slack_message(
-        context,
-        'failed',
-        'surveycto'
+    sync_db_with_server_task = PythonOperator(
+        task_id='Sync_DB_With_Server',
+        provide_context=True,
+        python_callable=sync_db_with_server,
+        dag=dag,
     )
 
-    failed_alert = SlackWebhookOperator(
-        task_id='slack_alert_failed',
-        http_conn_id='slack',
-        webhook_token=slack_webhook_token,
-        attachments=attachments,
-        username='airflow')
-    return failed_alert.execute(context=context)
-
-# TASKS
-save_data_to_db_task = PythonOperator(
-    task_id='Save_data_to_DB',
-    provide_context=True,
-    python_callable=save_data_to_db,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
-    dag=dag,
-)
-
-sync_db_with_server_task = PythonOperator(
-    task_id='Sync_DB_With_Server',
-    provide_context=True,
-    python_callable=sync_db_with_server,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
-    dag=dag,
-)
-
-save_data_to_db_task >> sync_db_with_server_task
+    save_data_to_db_task >> sync_db_with_server_task
