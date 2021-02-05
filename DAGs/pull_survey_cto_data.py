@@ -1,5 +1,6 @@
 import logging
 import requests
+import re
 from datetime import timedelta
 
 from airflow import DAG, AirflowException
@@ -74,6 +75,50 @@ def get_form_url(form_id, last_date, status):
     return form_url
 
 
+def get_forms_ids():
+    print('get forms ids')
+    session = requests.Session()
+    res = session.get(f'https://{SURV_SERVER_NAME}.surveycto.com/')
+    print(res)
+    csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
+
+    # Get CSRF token
+    auth_basic = requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD)
+
+    forms_request = session.get(
+        f'https://{SURV_SERVER_NAME}.surveycto.com/console/forms-groups-datasets/get',
+        auth=auth_basic,
+        headers={
+            "X-csrf-token": csrf_token,
+            'X-OpenRosa-Version': '1.0',
+            "Accept": "*/*"
+        }
+    )
+
+    print(forms_request.json())
+    forms = forms_request.json()['forms']
+    print(forms)
+    # TODO filter forms by deployed=true and testForm=false
+    forms = list(filter(lambda x: x['testForm'] == False and x['deployed'] == True, forms))
+    print(forms)
+
+    for form in forms:
+        print(form)
+        title = form['title']
+        print(title)
+        survey_types = session.get(
+            f'https://{SURV_SERVER_NAME}.surveycto.com/forms/{title}/workbook/export/load?includeFormStructureModel=true&submissionsPattern=all&fieldsPattern=all&fetchInBatches=true&includeDatasets=true&t=1612193019966',
+            auth=auth_basic,
+            headers={
+                "X-csrf-token": csrf_token,
+                'X-OpenRosa-Version': '1.0',
+                "Accept": "*/*"
+            }
+        )
+
+        print(survey_types)
+        # print(survey_types.json())
+
 def get_form_data(form):
     """
     load form data from SurveyCTO API
@@ -97,6 +142,7 @@ def save_data_to_db(**kwargs):
     Depending on the specified DB save data
     :return:
     """
+    get_forms_ids()  # For Debugging purposes
     all_forms = len(SURV_FORMS)
     success_forms = 0
     for form in SURV_FORMS:
@@ -263,3 +309,9 @@ with DAG(DAG_NAME, default_args=default_args,
     )
 
     save_data_to_db_task >> sync_db_with_server_task
+
+if __name__ == '__main__':
+    SURV_USERNAME = "anastiour@gmail.com"
+    SURV_PASSWORD = "R2d2c3po!"
+    SURV_SERVER_NAME = "anastiour"
+    get_forms_ids()
