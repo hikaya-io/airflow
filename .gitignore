@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 variables.json
 test.py
+.venv
