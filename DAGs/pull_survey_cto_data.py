@@ -75,16 +75,18 @@ def get_form_url(form_id, last_date, status):
     return form_url
 
 
-def get_forms_ids():
-    print('get forms ids')
+def get_forms():
+    """
+    List the IDs of the enabled and non-test forms
+    """
     session = requests.Session()
+    # Get CSRF token
     res = session.get(f'https://{SURV_SERVER_NAME}.surveycto.com/')
     print(res)
     csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
 
-    # Get CSRF token
     auth_basic = requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD)
-
+    # TODO add a retry mechanism on this first request
     forms_request = session.get(
         f'https://{SURV_SERVER_NAME}.surveycto.com/console/forms-groups-datasets/get',
         auth=auth_basic,
@@ -95,19 +97,18 @@ def get_forms_ids():
         }
     )
 
-    print(forms_request.json())
-    forms = forms_request.json()['forms']
-    print(forms)
-    # TODO filter forms by deployed=true and testForm=false
-    forms = list(filter(lambda x: x['testForm'] == False and x['deployed'] == True, forms))
-    print(forms)
+    if forms_request.status_code != 200:
+        print(forms_request.text)
 
+    forms = forms_request.json()['forms']
+    # ! Is this filter really working?
+    forms = list(filter(lambda x: x['testForm'] == False and x['deployed'] == True, forms))
+
+    forms_structures = []
     for form in forms:
-        print(form)
-        title = form['title']
-        print(title)
-        survey_types = session.get(
-            f'https://{SURV_SERVER_NAME}.surveycto.com/forms/{title}/workbook/export/load?includeFormStructureModel=true&submissionsPattern=all&fieldsPattern=all&fetchInBatches=true&includeDatasets=true&t=1612193019966',
+        form_id = form['id']
+        form_details = session.get(
+            f'https://{SURV_SERVER_NAME}.surveycto.com/forms/{form_id}/workbook/export/load?includeFormStructureModel=true&submissionsPattern=all&fieldsPattern=all&fetchInBatches=true&includeDatasets=true&t=1612193019966',
             auth=auth_basic,
             headers={
                 "X-csrf-token": csrf_token,
@@ -115,6 +116,30 @@ def get_forms_ids():
                 "Accept": "*/*"
             }
         )
+        if form_details.status_code == 200:
+            form_structure_model = form_details.json()['formStructureModel']
+            first_language = form_structure_model['defaultLanguage']
+            fields = form_structure_model['summaryElementsPerLanguage'][first_language]['children']
+            # Convert/transform fields to our format
+            fields = list(map(convert_surveycto_field, fields))
+
+            # TODO get the unique_colum from `submission_meta_data`
+            forms_structures.append({
+                'form_id': form['id'],
+                'name': form['title'],
+                'unique_column': 'KEY', # https://docs.surveycto.com/05-exporting-and-publishing-data/01-overview/09.data-format.html
+                'fields': fields,
+                'statuses': [],
+                'last_date': form['lastIncomingDataDate'],
+            })
+        else:
+            print(form_details.text)
+
+    print('forms_structures')
+    print(forms_structures)
+
+    return forms
+
 
         print(survey_types)
         # print(survey_types.json())
