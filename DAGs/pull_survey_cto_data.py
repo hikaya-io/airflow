@@ -74,6 +74,25 @@ def get_form_url(form_id, last_date, status):
     form_url = f'https://{SURV_SERVER_NAME}.surveycto.com/api/v2/forms/data/wide/json/{form_id}?date={last_date}&r={status}'
     return form_url
 
+def convert_surveycto_field(field):
+    # TODO Refactor into its own module
+    """
+    Convert a single field of a survey to our format
+    Detects and supports nested fields
+    """
+    if field['dataType'] == "group":
+        print('Nested field')
+        field['children'] = list(map(convert_surveycto_field, field['children']))
+        return {
+            'name': field['name'],
+            'type': field['dataType'],
+            'children': field['children']
+        }
+    else:
+        return {
+            'name': field['name'],
+            'type': field['dataType']
+        }
 
 def get_forms():
     """
@@ -140,10 +159,6 @@ def get_forms():
 
     return forms
 
-
-        print(survey_types)
-        # print(survey_types.json())
-
 def get_form_data(form):
     """
     load form data from SurveyCTO API
@@ -167,7 +182,8 @@ def save_data_to_db(**kwargs):
     Depending on the specified DB save data
     :return:
     """
-    get_forms_ids()  # For Debugging purposes
+    get_forms()
+
     all_forms = len(SURV_FORMS)
     success_forms = 0
     for form in SURV_FORMS:
@@ -339,4 +355,4 @@ if __name__ == '__main__':
     SURV_USERNAME = "anastiour@gmail.com"
     SURV_PASSWORD = "R2d2c3po!"
     SURV_SERVER_NAME = "anastiour"
-    get_forms_ids()
+    SURV_FORMS="{}"
