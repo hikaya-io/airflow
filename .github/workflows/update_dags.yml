@@ -1,0 +1,33 @@
+# This is a workflow to copy file on the server (set volume content)
+
+name: UPDATE_DAGs
+
+on:
+#  push:
+#    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  copyfiles:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out the repo
+      - uses: actions/checkout@v2
+
+      # Update DADs diectory on the server
+      - name: Copy dags folder content recursively to the server
+        uses: horochx/deploy-via-scp@master
+        with:
+          local: DAGs/*
+          remote: /home/hikaya/airflow/dags
+          host: ${{ secrets.HIKAYA_HOST }}
+          user: ${{ secrets.HIKAYA_SSH_USER }}          
+          Key: ${{ secrets.HIKAYA_PRIVATE_KEY }}
+  
+
