@@ -26,8 +26,6 @@ jobs:
         with:
           local: DAGs/*
           remote: /home/hikaya/airflow/dags
-          host: ${{ secrets.HIKAYA_HOST }}
-          user: ${{ secrets.HIKAYA_SSH_USER }}          
-          Key: ${{ secrets.HIKAYA_PRIVATE_KEY }}
-  
-
+          host: ${{ secrets.DROPLET_HOST }}
+          user: ${{ secrets.DROPLET_SSH_USER }}
+          Key: ${{ secrets.DROPLET_PRIVATE_KEY }}
