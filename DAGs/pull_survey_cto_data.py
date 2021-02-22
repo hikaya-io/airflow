@@ -1,4 +1,3 @@
-# Delete me please
 import logging
 import requests
 from datetime import timedelta
