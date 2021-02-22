@@ -17,10 +17,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checks-out the repo
       - uses: actions/checkout@v2
 
-      # Update DADs diectory on the server
+      # Update DAGs directory on the server, used as a Docker volume
       - name: Copy dags folder content recursively to the server
         uses: horochx/deploy-via-scp@master
         with:
