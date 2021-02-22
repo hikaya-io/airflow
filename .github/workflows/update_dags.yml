@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v2
 
       # Update DAGs directory on the server, used as a Docker volume
-      - name: Copy dags folder content recursively to the server
+      - name: Copy DAGs folder content to the server
         uses: horochx/deploy-via-scp@master
         with:
           local: DAGs/*
