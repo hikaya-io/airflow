@@ -1,5 +1,6 @@
 import logging
 import requests
+import re
 from datetime import timedelta
 
 from airflow import DAG, AirflowException
@@ -74,6 +75,25 @@ def get_form_url(form_id, last_date, status):
     return form_url
 
 
+def get_forms():
+    """
+    List the schema and fields of the forms
+    # TODO Flatten the fields
+    # TODO convert fields types properly
+    """
+    session = requests.Session()
+    # Get CSRF token
+    try:
+        res = session.get(f'https://{SURV_SERVER_NAME}.surveycto.com/')
+        res.raise_for_status()
+        csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
+    except requests.exceptions.HTTPError as e:
+        logger.error('Couldn\'t load SurveyCTO landing page for getting the CSRF token')
+    except requests.exceptions.RequestException as e:
+        logger.error('Unexpected error loading SurveyCTO landing page')
+
+    auth_basic = requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD)
+    # TODO add a retry mechanism on this first request
 def get_form_data(form):
     """
     load form data from SurveyCTO API
