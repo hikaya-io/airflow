@@ -173,6 +173,22 @@ def get_forms():
                 if '.' in name:
                     field['name'] = name.replace('.', '__')
 
+            forms_structures.append({
+                'form_id': form.get('id'),
+                'name': form.get('title').replace('.', '__').replace(' ', '__').replace('-', '__').replace(',', '__').replace(':', '__').replace('(', '__').replace(')', '__').replace('&', '__').replace('/', '__'), # Removing spaces for PostgreSQL
+                'unique_column': 'KEY__', # https://docs.surveycto.com/05-exporting-and-publishing-data/01-overview/09.data-format.html
+                'fields': fields,
+                'statuses': ['approved', 'pending'],
+                # 'last_date': form.get('lastIncomingDataDate'), # TODO Should never be 0 or will cause API restrictions
+                'last_date': 1549736155, # TODO Should never be 0 or will cause API restrictions
+            })
+        else:
+            logger.error(form_details.text)
+            logger.error(f'Could not retrieve details of the form {form_id}')
+
+    return forms_structures
+
+
 def get_form_data(form):
     """
     load form data from SurveyCTO API
