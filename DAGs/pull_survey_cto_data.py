@@ -94,6 +94,24 @@ def get_forms():
 
     auth_basic = requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD)
     # TODO add a retry mechanism on this first request
+    forms_request = session.get(
+        f'https://{SURV_SERVER_NAME}.surveycto.com/console/forms-groups-datasets/get',
+        auth=auth_basic,
+        headers={
+            "X-csrf-token": csrf_token,
+            'X-OpenRosa-Version': '1.0',
+            "Accept": "*/*"
+        }
+    )
+
+    if forms_request.status_code != 200:
+        logger.error(forms_request.text)
+        logger.error('Could not retrieve the list of forms')
+
+    forms = forms_request.json()['forms']
+    # ! Is this filter really working?
+    forms = list(filter(lambda x: x['testForm'] == False and x['deployed'] == True, forms))
+
 def get_form_data(form):
     """
     load form data from SurveyCTO API
