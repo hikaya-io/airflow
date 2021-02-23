@@ -155,6 +155,24 @@ def get_forms():
                 if field.get('name') not in new_fields_names:
                     new_fields.append(field)
             fields = new_fields
+
+            # Rename fields with PostgreSQL reserved words and
+            # remove special characters from fields names
+            for field in fields:
+                name = field.get('name')
+                if name == 'end':
+                    field['name'] = 'end__'
+                if name == 'zone':
+                    field['name'] = 'zone__'
+                if name == 'into':
+                    field['name'] = 'into__'
+                if name == 'when':
+                    field['name'] = 'when__'
+                if '-' in name:
+                    field['name'] = name.replace('-', '__')
+                if '.' in name:
+                    field['name'] = name.replace('.', '__')
+
 def get_form_data(form):
     """
     load form data from SurveyCTO API
