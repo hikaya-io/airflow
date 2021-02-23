@@ -214,14 +214,21 @@ def get_form_data(form):
 
 def save_data_to_db(**kwargs):
     """
-    Depending on the specified DB save data
+    Save data to Postgres or MongoDB, depending on the variable SURV_DBMS
     :return:
     """
-    all_forms = len(SURV_FORMS)
-    success_forms = 0
-    for form in SURV_FORMS:
+    total_success_forms = 0
+    forms = get_forms()
+    total_forms = len(forms)
+    logger.info(f'Total number of forms in server is: {len(forms)}')
+
+    for form in forms:
         # get columns
-        columns = [item.get('name') for item in form.get('fields')]
+        if form.get('fields') is not None:
+            columns = [item.get('name') for item in form.get('fields', [])]
+            columns = list(dict.fromkeys(columns)) # Remove duplicates from columns
+        else:
+            columns = []
         primary_key = form.get('unique_column')
 
         api_data = get_form_data(form)
@@ -243,7 +250,7 @@ def save_data_to_db(**kwargs):
                 # create the column strings
                 column_data = [
                     PostgresOperations.construct_column_strings(
-                        item, primary_key) for item in form.get('fields')
+                        item, primary_key) for item in (form.get('fields') or [])
                 ]
 
                 # create the Db
@@ -263,13 +270,14 @@ def save_data_to_db(**kwargs):
                     upsert_query = PostgresOperations.construct_postgres_upsert_query(
                         form.get('name'), columns, primary_key)
 
-                    cur.executemany(
-                        upsert_query,
-                        DataCleaningUtil.update_row_columns(
-                            form.get('fields'), response_data))
-                    connection.commit()
-
-                    success_forms += 1
+                    if form.get('fields') is not None:
+                        cur.executemany(
+                            upsert_query,
+                            DataCleaningUtil.update_row_columns(
+                                form.get('fields'), response_data)
+                        )
+                        connection.commit()
+                    total_success_forms += 1
 
             else:
                 """
@@ -281,14 +289,16 @@ def save_data_to_db(**kwargs):
                 mongo_operations = MongoOperations.construct_mongo_upsert_query(
                     response_data, primary_key)
                 collection.bulk_write(mongo_operations)
-                success_forms += 1
+                total_success_forms += 1
 
         else:
+            total_success_forms += 1
             logger.warn('The form {} has no data'.format(form.get('name')))
 
-    if success_forms == all_forms:
+    if total_success_forms == total_forms:
         return dict(success=True)
     else:
+        logger.error(f'Only {total_success_forms} forms loaded out of a total of {total_forms} forms')
         raise AirflowException('Not all forms data loaded')
 
 
