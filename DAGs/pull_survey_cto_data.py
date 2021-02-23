@@ -112,6 +112,26 @@ def get_forms():
     # ! Is this filter really working?
     forms = list(filter(lambda x: x['testForm'] == False and x['deployed'] == True, forms))
 
+    forms_structures = []
+    for form in forms:
+        form_id = form.get('id')
+        form_details = session.get(
+            f'https://{SURV_SERVER_NAME}.surveycto.com/forms/{form_id}/workbook/export/load',
+            params={
+                'includeFormStructureModel': 'true',
+                'submissionsPattern': 'all',
+                'fieldsPattern': 'all',
+                'fetchInBatches': 'true',
+                'includeDatasets': 'false',
+                'date': '1550011019966' # TODO set date conveniently
+            },
+            auth=auth_basic,
+            headers={
+                "X-csrf-token": csrf_token,
+                'X-OpenRosa-Version': '1.0',
+                "Accept": "*/*"
+            }
+        )
 def get_form_data(form):
     """
     load form data from SurveyCTO API
