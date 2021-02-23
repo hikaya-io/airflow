@@ -202,6 +202,11 @@ def get_form_data(form):
     response = fetch_data(url, form.get('keyfile'))
     response_data = response
 
+    for submission in response_data:
+        # Below raises an error if the preious request fails with 500 (string indices must be integers)
+        submission['KEY__'] = submission['KEY'] # ! Not it's place. No idea what the primary_key is
+        del submission['KEY']
+
     logger.info('Get form data successful')
 
     return response_data
