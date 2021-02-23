@@ -85,7 +85,7 @@ def get_form_data(form):
                        '|'.join(form.get('statuses', ['approved', 'pending'])))
 
     response = fetch_data(url, form.get('keyfile'))
-    response_data = response.json()
+    response_data = response
 
     logger.info('Get form data successful')
 
