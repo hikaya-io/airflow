@@ -132,6 +132,29 @@ def get_forms():
                 "Accept": "*/*"
             }
         )
+        if form_details.status_code == 200:
+            form_structure_model = form_details.json().get('formStructureModel')
+            first_language = form_structure_model.get('defaultLanguage')
+            fields = form_structure_model['summaryElementsPerLanguage'][first_language]['children']
+
+            # Convert/transform fields to our format
+            # fields = list(map(convert_surveycto_field, fields))
+            fields = [{
+                'name': field.get('name').lower(),
+                'type': 'text' # ! Defaulting all fields to TEXT PostgreSQL type
+            } for field in fields]
+            # Adding the KEY__ field
+            fields.append({
+                'name': 'KEY__',
+                'type': 'text'
+            })
+
+            new_fields = []
+            for field in fields:
+                new_fields_names = [field.get('name') for field in new_fields]
+                if field.get('name') not in new_fields_names:
+                    new_fields.append(field)
+            fields = new_fields
 def get_form_data(form):
     """
     load form data from SurveyCTO API
