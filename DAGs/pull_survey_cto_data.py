@@ -3,12 +3,12 @@ import requests
 import re
 from datetime import timedelta
 
-from airflow import DAG, AirflowException
+from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
-
-from helpers.utils import DataCleaningUtil
+from helpers.utils import (DataCleaningUtil, logger)
 from helpers.mongo_utils import MongoOperations
 from helpers.postgres_utils import PostgresOperations
+
 from helpers.task_utils import notify, get_daily_start_date
 from helpers.configs import (
     SURV_SERVER_NAME,
@@ -62,9 +62,9 @@ def fetch_data(data_url, enc_key_file=None):
                                          SURV_USERNAME, SURV_PASSWORD))
 
     except Exception as e:
-        raise AirflowException(f'Fetch data failed with exception: {e}')
-
-    response_data = response.json()
+        logger.error('Fetching data from SurveyCTO failed')
+        logger.exception(e)
+        response_data = dict(success=False, error=e)
 
     return response_data
 
@@ -191,6 +191,7 @@ def get_forms():
 
 def get_form_data(form):
     """
+    TODO properly handle invalid responses (e.g Bad Credentials)
     load form data from SurveyCTO API
     :param form:
     :return:
@@ -322,9 +323,10 @@ def sync_db_with_server(**context):
             ]
             api_data_keys = [item.get(primary_key) for item in response_data]
 
-            if SURV_DBMS is not None and (SURV_DBMS.lower() == 'postgres'
-                                          or SURV_DBMS.lower().replace(
-                                              ' ', '') == 'postgresdb'):
+            if SURV_DBMS is not None and (
+                SURV_DBMS.lower() == 'postgres' or
+                SURV_DBMS.lower().replace(' ', '') == 'postgresdb'
+            ):
                 """
                 Delete data from postgres if DBMS is set to Postgres
                 """
@@ -368,12 +370,15 @@ def sync_db_with_server(**context):
                          }})
 
         if len(deleted_data) > 0:
+            logger.info('Data has been deleted')
             return dict(report=deleted_data)
         else:
+            logger.info('All Data is up to date')
             return dict(message='All Data is up to date!!')
 
     else:
-        raise AirflowException('Data dumping failed')
+        logger.error('Data dumping failed')
+        return dict(failure='Data dumping failed')
 
 
 with DAG(DAG_NAME, default_args=default_args,

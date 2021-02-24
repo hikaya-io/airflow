@@ -7,7 +7,7 @@ import requests
 
 from helpers.dag_utils import (DagUtility,)
 from helpers.mongo_utils import (MongoOperations,)
-from helpers.utils import (DataCleaningUtil,)
+from helpers.utils import (DataCleaningUtil, logger)
 from helpers.postgres_utils import (PostgresOperations,)
 from helpers.slack_utils import (SlackNotification, )
 from helpers.configs import (
@@ -69,8 +69,8 @@ def clean_form_data_columns(row, table_fields):
 
 def dump_raw_data_to_mongo(db_connection):
     if KOBO_DBMS is None or (
-            KOBO_DBMS is not None and (
-            KOBO_DBMS.lower() == 'mongo' or KOBO_DBMS.lower() == 'mongodb')
+        KOBO_DBMS is not None and (
+        KOBO_DBMS.lower() == 'mongo' or KOBO_DBMS.lower() == 'mongodb')
     ):
         kobo_forms = get_kobo_forms()
         for form in kobo_forms:
@@ -82,6 +82,7 @@ def dump_raw_data_to_mongo(db_connection):
                 mongo_operations = MongoOperations.construct_mongo_upsert_query(data, '_id')
                 collection.bulk_write(mongo_operations)
     else:
+        logger.error('Error while dumping raw data to MongoDB. Exiting...')
         exit(code=1)
 
 
@@ -170,7 +171,7 @@ def save_kobo_data_to_db(**context):
 
             if isinstance(response_data, (list,)) and len(response_data):
                 if KOBO_DBMS is not None and (
-                        KOBO_DBMS.lower() == 'postgres' or KOBO_DBMS.lower() == 'postgresdb'
+                    KOBO_DBMS.lower() == 'postgres' or KOBO_DBMS.lower() == 'postgresdb'
                 ):
                     """
                     Dump data to postgres 
@@ -193,7 +194,7 @@ def save_kobo_data_to_db(**context):
                     dump_clean_data_to_mongo(db_connection, form, response_data)
                     success_forms += 1
             else:
-                print(dict(message='The form {} has no data'.format(form.get('name'))))
+                logger.info('The form {} has no data'.format(form.get('name')))
 
         if success_forms == all_forms:
             return dict(success=True)
@@ -225,7 +226,8 @@ def sync_submissions_on_db(**context):
             api_data_keys = [item.get(primary_key) for item in response_data]
 
             if KOBO_DBMS is not None and (
-                    KOBO_DBMS.lower() == 'postgres' or KOBO_DBMS.lower().replace(' ', '') == 'postgresdb'):
+                KOBO_DBMS.lower() == 'postgres' or KOBO_DBMS.lower().replace(' ', '') == 'postgresdb'
+            ):
                 """
                 Delete data from postgres id DBMS is set to Postgres
                 """
@@ -278,9 +280,11 @@ def sync_submissions_on_db(**context):
         if len(deleted_data) > 0:
             return dict(report=deleted_data)
         else:
+            logger.info('All Data is up to date')
             return dict(message='All Data is up to date!!')
 
     else:
+        logger.error('Data dumping failed')
         return dict(failure='Data dumping failed')
 
 
