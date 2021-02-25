@@ -3,7 +3,7 @@ import requests
 import re
 from datetime import timedelta
 
-from airflow import DAG
+from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
 from helpers.utils import (DataCleaningUtil, logger)
 from helpers.mongo_utils import MongoOperations
