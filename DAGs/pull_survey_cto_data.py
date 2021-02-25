@@ -202,14 +202,14 @@ def get_form_data(form):
 
     response = fetch_data(url, form.get('keyfile'))
 
-    for submission in response_data:
-        # Below raises an error if the preious request fails with 500 (string indices must be integers)
-        submission['KEY__'] = submission['KEY'] # ! Not it's place. No idea what the primary_key is
+    for submission in response:
+        # The unique column identifying submissions is KEY__
+        submission['KEY__'] = submission['KEY']
         del submission['KEY']
 
     logger.info('Get form data successful')
 
-    return response_data
+    return response
 
 
 def save_data_to_db(**kwargs):
@@ -239,12 +239,11 @@ def save_data_to_db(**kwargs):
         ]
 
         if isinstance(response_data, (list, )) and len(response_data):
-
             if SURV_DBMS is not None and (SURV_DBMS.lower() == 'postgres'
                                           or SURV_DBMS.lower().replace(
                                               ' ', '') == 'postgresdb'):
                 """
-                Dump data to postgres 
+                Dump data to postgres
                 """
 
                 # create the column strings
