@@ -60,13 +60,13 @@ def fetch_data(data_url, enc_key_file=None):
                                      files=files,
                                      auth=requests.auth.HTTPBasicAuth(
                                          SURV_USERNAME, SURV_PASSWORD))
-
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise AirflowException(f'Fetch data failed with exception: {e}')
     except Exception as e:
-        logger.error('Fetching data from SurveyCTO failed')
-        logger.exception(e)
-        response_data = dict(success=False, error=e)
+        raise AirflowException(f'Unexpected error when fetching data: {e}')
 
-    return response_data
+    return response.json()
 
 
 def get_form_url(form_id, last_date, status):
@@ -201,7 +201,6 @@ def get_form_data(form):
                        '|'.join(form.get('statuses', ['approved', 'pending'])))
 
     response = fetch_data(url, form.get('keyfile'))
-    response_data = response
 
     for submission in response_data:
         # Below raises an error if the preious request fails with 500 (string indices must be integers)
