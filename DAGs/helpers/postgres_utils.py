@@ -37,9 +37,8 @@ class PostgresOperations:
         :param columns_data: the data column names
         :return create_table_query: SQL query string
         """
-        create_table_query = 'CREATE TABLE IF NOT EXISTS ' \
-                             + table_name + ' (' + ', '.join(columns_data) + ')'
-
+        create_table_query = 'CREATE TABLE IF NOT EXISTS \"' \
+                             + table_name + '\" (' + ', '.join(columns_data) + ')'
         return create_table_query
 
     @staticmethod
@@ -51,7 +50,7 @@ class PostgresOperations:
         :param target_column: reference column for update
         :return full_upsert_query_string:  complete UPSERT query string
         """
-        insert_query_string = 'INSERT INTO ' + table_name + '(' + ','\
+        insert_query_string = 'INSERT INTO \"' + table_name + '\" (' + ','\
             .join(columns) + ')'
         db_field_maps = ['%({})s'.format(item) for item in columns]
         exclude_columns = ['{}=excluded.{}'.format(column, column) for column in columns]

@@ -175,7 +175,7 @@ def get_forms():
 
             forms_structures.append({
                 'form_id': form.get('id'),
-                'name': form.get('title').replace('.', '__').replace(' ', '__').replace('-', '__').replace(',', '__').replace(':', '__').replace('(', '__').replace(')', '__').replace('&', '__').replace('/', '__'), # Removing spaces for PostgreSQL
+                'name': form.get('title'),
                 'unique_column': 'KEY__', # https://docs.surveycto.com/05-exporting-and-publishing-data/01-overview/09.data-format.html
                 'fields': fields,
                 'statuses': ['approved', 'pending'],
@@ -262,7 +262,7 @@ def save_data_to_db(**kwargs):
                 with connection:
                     cur = connection.cursor()
                     if SURV_RECREATE_DB == 'True':
-                        cur.execute("DROP TABLE IF EXISTS " + form.get('name'))
+                        cur.execute("DROP TABLE IF EXISTS \"" + form.get('name') + "\"")
                         cur.execute(db_query)
 
                     # insert data
