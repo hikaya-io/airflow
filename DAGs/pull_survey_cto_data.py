@@ -295,6 +295,7 @@ def save_data_to_db(**kwargs):
             logger.warn('The form {} has no data'.format(form.get('name')))
 
     if total_success_forms == total_forms:
+        logger.info(f'Loaded submissions of all the {total_forms} forms')
         return dict(success=True)
     else:
         logger.error(f'Only {total_success_forms} forms loaded out of a total of {total_forms} forms')
