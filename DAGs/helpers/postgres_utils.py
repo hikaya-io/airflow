@@ -50,14 +50,13 @@ class PostgresOperations:
         :param target_column: reference column for update
         :return full_upsert_query_string:  complete UPSERT query string
         """
-        insert_query_string = 'INSERT INTO \"' + table_name + '\" (' + ','\
-            .join(columns) + ')'
+        insert_query_string = 'INSERT INTO \"' + table_name + '\" (\"' + '\", \"'.join(columns) + '\")'
         db_field_maps = ['%({})s'.format(item) for item in columns]
-        exclude_columns = ['{}=excluded.{}'.format(column, column) for column in columns]
-        update_string = 'ON CONFLICT ({}) '.format(target_column) +\
+        exclude_columns = ['\"{}\"=excluded.\"{}\"'.format(column, column) for column in columns]
+        update_string = 'ON CONFLICT (\"{}\") '.format(target_column) +\
                         'DO UPDATE SET ' + ', '.join(exclude_columns)
 
-        full_upsert_query_string = insert_query_string + 'VALUES (' + ','.join(
+        full_upsert_query_string = insert_query_string + ' VALUES (' + ','.join(
             db_field_maps) + ') ' + update_string
 
         return full_upsert_query_string
