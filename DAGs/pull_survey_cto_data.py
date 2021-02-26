@@ -145,7 +145,7 @@ def get_forms():
             } for field in fields]
             # Adding the KEY__ field
             fields.append({
-                'name': 'KEY__',
+                'name': 'KEY',
                 'type': 'text'
             })
             forms_structures.append({
@@ -174,14 +174,7 @@ def get_form_data(form):
 
     url = get_form_url(form.get('form_id', ''), form.get('last_date', 0),
                        '|'.join(form.get('statuses', ['approved', 'pending'])))
-
     response = fetch_data(url, form.get('keyfile'))
-
-    for submission in response:
-        # The unique column identifying submissions is KEY__
-        submission['KEY__'] = submission['KEY']
-        del submission['KEY']
-
     logger.info('Get form data successful')
 
     return response
