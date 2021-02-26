@@ -140,7 +140,7 @@ def get_forms():
             # Convert/transform fields to our format
             # fields = list(map(convert_surveycto_field, fields))
             fields = [{
-                'name': field.get('name').lower(),
+                'name': field.get('name'),
                 'type': 'text' # ! Defaulting all fields to TEXT PostgreSQL type
             } for field in fields]
             # Adding the KEY__ field
@@ -148,35 +148,10 @@ def get_forms():
                 'name': 'KEY__',
                 'type': 'text'
             })
-
-            new_fields = []
-            for field in fields:
-                new_fields_names = [field.get('name') for field in new_fields]
-                if field.get('name') not in new_fields_names:
-                    new_fields.append(field)
-            fields = new_fields
-
-            # Rename fields with PostgreSQL reserved words and
-            # remove special characters from fields names
-            for field in fields:
-                name = field.get('name')
-                if name == 'end':
-                    field['name'] = 'end__'
-                if name == 'zone':
-                    field['name'] = 'zone__'
-                if name == 'into':
-                    field['name'] = 'into__'
-                if name == 'when':
-                    field['name'] = 'when__'
-                if '-' in name:
-                    field['name'] = name.replace('-', '__')
-                if '.' in name:
-                    field['name'] = name.replace('.', '__')
-
             forms_structures.append({
                 'form_id': form.get('id'),
                 'name': form.get('title'),
-                'unique_column': 'KEY__', # https://docs.surveycto.com/05-exporting-and-publishing-data/01-overview/09.data-format.html
+                'unique_column': 'KEY', # https://docs.surveycto.com/05-exporting-and-publishing-data/01-overview/09.data-format.html
                 'fields': fields,
                 'statuses': ['approved', 'pending'],
                 # 'last_date': form.get('lastIncomingDataDate'), # TODO Should never be 0 or will cause API restrictions
@@ -226,7 +201,6 @@ def save_data_to_db(**kwargs):
         # get columns
         if form.get('fields') is not None:
             columns = [item.get('name') for item in form.get('fields', [])]
-            columns = list(dict.fromkeys(columns)) # Remove duplicates from columns
         else:
             columns = []
         primary_key = form.get('unique_column')
