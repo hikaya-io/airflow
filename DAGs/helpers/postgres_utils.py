@@ -90,29 +90,29 @@ class PostgresOperations:
             column_name = column_data.get('db_name')
 
         if column_data.get('type', '').lower() == 'int':
-            column_map = column_name + ' INT'
+            column_map = '\"' + column_name + '\" INT'
 
         elif column_data.get('type', '').lower() == 'decimal':
-            column_map = column_name + ' REAL'
+            column_map = '\"' + column_name + '\" REAL'
 
         elif column_data.get('type', '').lower() == 'char':
-            column_map = column_name + ' CHAR(' + str(column_data.get('length', 100)) + ')'
+            column_map = '\"' + column_name + '\" CHAR(' + str(column_data.get('length', 100)) + ')'
 
         elif column_data.get('type', '').lower() == 'boolean':
-            column_map = column_name + ' BOOLEAN'
+            column_map = '\"' + column_name + '\" BOOLEAN'
 
         elif column_data.get('type', '').lower() == 'boolean':
-            column_map = column_name + ' BOOLEAN'
+            column_map = '\"' + column_name + '\" BOOLEAN'
 
         elif column_data.get('type', '').lower() == 'array':
-            column_map = column_name + ' text[]'
+            column_map = '\"' + column_name + '\" text[]'
 
         elif column_data.get('type', '').lower() == 'object' or \
                 column_data.get('type', '').lower() == 'json':
-            column_map = column_name + ' jsonb'
+            column_map = '\"' + column_name + '\" jsonb'
 
         else:
-            column_map = column_name + ' TEXT'
+            column_map = '\"' + column_name + '\" TEXT'
 
         if column_name.lower() == str(primary_key).lower():
             column_map = '{} UNIQUE'.format(column_map)
