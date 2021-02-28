@@ -88,9 +88,11 @@ def get_forms():
         res.raise_for_status()
         csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
     except requests.exceptions.HTTPError as e:
-        logger.error('Couldn\'t load SurveyCTO landing page for getting the CSRF token')
+        logger.error(e)
+        raise AirflowException('Couldn\'t load SurveyCTO landing page for getting the CSRF token')
     except requests.exceptions.RequestException as e:
-        logger.error('Unexpected error loading SurveyCTO landing page')
+        logger.error(e)
+        raise AirflowException('Unexpected error loading SurveyCTO landing page')
 
     auth_basic = requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD)
     # TODO add a retry mechanism on this first request
