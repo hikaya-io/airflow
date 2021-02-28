@@ -80,8 +80,8 @@ class DataCleaningUtil:
         : param type: data type
         : return column_string: Postgres query compatible string
         """
-        if type.lower() == 'int':
-            return None
+
+        return None
 
         if type.lower() == 'decimal':
             return None
