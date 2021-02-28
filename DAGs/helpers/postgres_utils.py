@@ -88,26 +88,31 @@ class PostgresOperations:
         if column_name is None:
             column_name = column_data.get('db_name')
 
-        if column_data.get('type', '').lower() == 'int':
+        if column_data.get('type', '') is None:
+            field_type = ''
+        else:
+            field_type = column_data.get('type', '').lower()
+
+        # TODO time formats
+        # TODO select_one, select_multiple
+        # TODO Geopoints
+
+        if field_type in ['int', 'integer']:
             column_map = '\"' + column_name + '\" INT'
 
-        elif column_data.get('type', '').lower() == 'decimal':
+        elif field_type == 'decimal':
             column_map = '\"' + column_name + '\" REAL'
 
-        elif column_data.get('type', '').lower() == 'char':
+        elif field_type == 'char':
             column_map = '\"' + column_name + '\" CHAR(' + str(column_data.get('length', 100)) + ')'
 
-        elif column_data.get('type', '').lower() == 'boolean':
+        elif field_type == 'boolean':
             column_map = '\"' + column_name + '\" BOOLEAN'
 
-        elif column_data.get('type', '').lower() == 'boolean':
-            column_map = '\"' + column_name + '\" BOOLEAN'
-
-        elif column_data.get('type', '').lower() == 'array':
+        elif field_type == 'array':
             column_map = '\"' + column_name + '\" text[]'
 
-        elif column_data.get('type', '').lower() == 'object' or \
-                column_data.get('type', '').lower() == 'json':
+        elif field_type in ['object', 'json']:
             column_map = '\"' + column_name + '\" jsonb'
 
         else:
@@ -143,4 +148,3 @@ class PostgresOperations:
                 primary_key_values_list = primary_key_values_list + row_ids
 
         return primary_key_values_list
-
