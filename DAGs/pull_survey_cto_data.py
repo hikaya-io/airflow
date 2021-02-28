@@ -8,7 +8,7 @@ from airflow.operators.python_operator import PythonOperator
 from helpers.utils import (DataCleaningUtil, logger)
 from helpers.mongo_utils import MongoOperations
 from helpers.postgres_utils import PostgresOperations
-
+from helpers.requests import create_requests_session
 from helpers.task_utils import notify, get_daily_start_date
 from helpers.configs import (
     SURV_SERVER_NAME,
