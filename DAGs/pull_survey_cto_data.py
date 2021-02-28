@@ -141,7 +141,7 @@ def get_forms():
             # fields = list(map(convert_surveycto_field, fields))
             fields = [{
                 'name': field.get('name'),
-                'type': 'text' # ! Defaulting all fields to TEXT PostgreSQL type
+                'type': field.get('dataType')
             } for field in fields]
             # Adding the KEY__ field
             fields.append({
