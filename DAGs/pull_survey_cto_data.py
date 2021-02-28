@@ -236,11 +236,25 @@ def save_data_to_db(**kwargs):
                     upsert_query = PostgresOperations.construct_postgres_upsert_query(
                         form.get('name'), columns, primary_key)
 
+                    for submission in response_data:
+                        # TODO Group all the fields by types and do transformations on them
+                        integer_columns = [field.get('name') for field in form.get('fields') if field.get('type') == 'integer']
+                        for col in integer_columns: # Set default and null values for integers in the submission
+                            try:
+                                if submission[col] == '':
+                                    submission[col] = None # Empty string integer field defaults to None
+                                else:
+                                    submission[col] = int(submission[col])
+                            except KeyError: # Column is missing from a submission
+                                submission[col] = None
+                            except ValueError:
+                                logger.error('Field is not convertible to integer')
+
                     if form.get('fields') is not None:
                         cur.executemany(
                             upsert_query,
                             DataCleaningUtil.update_row_columns(
-                                form.get('fields'), response_data)
+                                form.get('fields'), response_data) # Need to Python type the response_data submissions
                         )
                         connection.commit()
                     total_success_forms += 1
