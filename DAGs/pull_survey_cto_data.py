@@ -148,6 +148,15 @@ def get_forms():
                 'name': 'KEY',
                 'type': 'text'
             })
+            # Adding the CompletionDate/SubmissionDate datetime fields
+            fields.append({
+                'name': 'CompletionDate',
+                'type': 'datetime'
+            })
+            fields.append({
+                'name': 'SubmissionDate',
+                'type': 'datetime'
+            })
             forms_structures.append({
                 'form_id': form.get('id'),
                 'name': form.get('title'),
