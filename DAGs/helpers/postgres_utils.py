@@ -37,9 +37,8 @@ class PostgresOperations:
         :param columns_data: the data column names
         :return create_table_query: SQL query string
         """
-        create_table_query = 'CREATE TABLE IF NOT EXISTS ' \
-                             + table_name + ' (' + ', '.join(columns_data) + ')'
-
+        create_table_query = 'CREATE TABLE IF NOT EXISTS \"' \
+                             + table_name + '\" (' + ', '.join(columns_data) + ')'
         return create_table_query
 
     @staticmethod
@@ -51,14 +50,13 @@ class PostgresOperations:
         :param target_column: reference column for update
         :return full_upsert_query_string:  complete UPSERT query string
         """
-        insert_query_string = 'INSERT INTO ' + table_name + '(' + ','\
-            .join(columns) + ')'
+        insert_query_string = 'INSERT INTO \"' + table_name + '\" (\"' + '\", \"'.join(columns) + '\")'
         db_field_maps = ['%({})s'.format(item) for item in columns]
-        exclude_columns = ['{}=excluded.{}'.format(column, column) for column in columns]
-        update_string = 'ON CONFLICT ({}) '.format(target_column) +\
+        exclude_columns = ['\"{}\"=excluded.\"{}\"'.format(column, column) for column in columns]
+        update_string = 'ON CONFLICT (\"{}\") '.format(target_column) +\
                         'DO UPDATE SET ' + ', '.join(exclude_columns)
 
-        full_upsert_query_string = insert_query_string + 'VALUES (' + ','.join(
+        full_upsert_query_string = insert_query_string + ' VALUES (' + ','.join(
             db_field_maps) + ') ' + update_string
 
         return full_upsert_query_string
@@ -91,29 +89,29 @@ class PostgresOperations:
             column_name = column_data.get('db_name')
 
         if column_data.get('type', '').lower() == 'int':
-            column_map = column_name + ' INT'
+            column_map = '\"' + column_name + '\" INT'
 
         elif column_data.get('type', '').lower() == 'decimal':
-            column_map = column_name + ' REAL'
+            column_map = '\"' + column_name + '\" REAL'
 
         elif column_data.get('type', '').lower() == 'char':
-            column_map = column_name + ' CHAR(' + str(column_data.get('length', 100)) + ')'
+            column_map = '\"' + column_name + '\" CHAR(' + str(column_data.get('length', 100)) + ')'
 
         elif column_data.get('type', '').lower() == 'boolean':
-            column_map = column_name + ' BOOLEAN'
+            column_map = '\"' + column_name + '\" BOOLEAN'
 
         elif column_data.get('type', '').lower() == 'boolean':
-            column_map = column_name + ' BOOLEAN'
+            column_map = '\"' + column_name + '\" BOOLEAN'
 
         elif column_data.get('type', '').lower() == 'array':
-            column_map = column_name + ' text[]'
+            column_map = '\"' + column_name + '\" text[]'
 
         elif column_data.get('type', '').lower() == 'object' or \
                 column_data.get('type', '').lower() == 'json':
-            column_map = column_name + ' jsonb'
+            column_map = '\"' + column_name + '\" jsonb'
 
         else:
-            column_map = column_name + ' TEXT'
+            column_map = '\"' + column_name + '\" TEXT'
 
         if column_name.lower() == str(primary_key).lower():
             column_map = '{} UNIQUE'.format(column_map)

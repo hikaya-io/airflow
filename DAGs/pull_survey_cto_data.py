@@ -1,8 +1,9 @@
 import logging
 import requests
+import re
 from datetime import timedelta
 
-from airflow import DAG
+from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
 from helpers.utils import (DataCleaningUtil, logger)
 from helpers.mongo_utils import MongoOperations
@@ -59,19 +60,108 @@ def fetch_data(data_url, enc_key_file=None):
                                      files=files,
                                      auth=requests.auth.HTTPBasicAuth(
                                          SURV_USERNAME, SURV_PASSWORD))
-
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise AirflowException(f'Fetch data failed with exception: {e}')
     except Exception as e:
-        logger.error('Fetching data from SurveyCTO failed')
-        logger.exception(e)
-        response_data = dict(success=False, error=e)
+        raise AirflowException(f'Unexpected error when fetching data: {e}')
 
-    return response_data
+    return response.json()
 
 
 def get_form_url(form_id, last_date, status):
 
     form_url = f'https://{SURV_SERVER_NAME}.surveycto.com/api/v2/forms/data/wide/json/{form_id}?date={last_date}&r={status}'
     return form_url
+
+
+def get_forms():
+    """
+    List the schema and fields of the forms
+    # TODO Flatten the fields
+    # TODO convert fields types properly
+    """
+    session = requests.Session()
+    # Get CSRF token
+    try:
+        res = session.get(f'https://{SURV_SERVER_NAME}.surveycto.com/')
+        res.raise_for_status()
+        csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
+    except requests.exceptions.HTTPError as e:
+        logger.error('Couldn\'t load SurveyCTO landing page for getting the CSRF token')
+    except requests.exceptions.RequestException as e:
+        logger.error('Unexpected error loading SurveyCTO landing page')
+
+    auth_basic = requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD)
+    # TODO add a retry mechanism on this first request
+    forms_request = session.get(
+        f'https://{SURV_SERVER_NAME}.surveycto.com/console/forms-groups-datasets/get',
+        auth=auth_basic,
+        headers={
+            "X-csrf-token": csrf_token,
+            'X-OpenRosa-Version': '1.0',
+            "Accept": "*/*"
+        }
+    )
+
+    if forms_request.status_code != 200:
+        logger.error(forms_request.text)
+        logger.error('Could not retrieve the list of forms')
+
+    forms = forms_request.json()['forms']
+    # ! Is this filter really working?
+    forms = list(filter(lambda x: x['testForm'] == False and x['deployed'] == True, forms))
+
+    forms_structures = []
+    for form in forms:
+        form_id = form.get('id')
+        form_details = session.get(
+            f'https://{SURV_SERVER_NAME}.surveycto.com/forms/{form_id}/workbook/export/load',
+            params={
+                'includeFormStructureModel': 'true',
+                'submissionsPattern': 'all',
+                'fieldsPattern': 'all',
+                'fetchInBatches': 'true',
+                'includeDatasets': 'false',
+                'date': '1550011019966' # TODO set date conveniently
+            },
+            auth=auth_basic,
+            headers={
+                "X-csrf-token": csrf_token,
+                'X-OpenRosa-Version': '1.0',
+                "Accept": "*/*"
+            }
+        )
+        if form_details.status_code == 200:
+            form_structure_model = form_details.json().get('formStructureModel')
+            first_language = form_structure_model.get('defaultLanguage')
+            fields = form_structure_model['summaryElementsPerLanguage'][first_language]['children']
+
+            # Convert/transform fields to our format
+            # fields = list(map(convert_surveycto_field, fields))
+            fields = [{
+                'name': field.get('name'),
+                'type': 'text' # ! Defaulting all fields to TEXT PostgreSQL type
+            } for field in fields]
+            # Adding the KEY__ field
+            fields.append({
+                'name': 'KEY',
+                'type': 'text'
+            })
+            forms_structures.append({
+                'form_id': form.get('id'),
+                'name': form.get('title'),
+                'unique_column': 'KEY', # https://docs.surveycto.com/05-exporting-and-publishing-data/01-overview/09.data-format.html
+                'fields': fields,
+                'statuses': ['approved', 'pending'],
+                # 'last_date': form.get('lastIncomingDataDate'), # TODO Should never be 0 or will cause API restrictions
+                'last_date': 1549736155, # TODO Should never be 0 or will cause API restrictions
+            })
+        else:
+            logger.error(form_details.text)
+            logger.error(f'Could not retrieve details of the form {form_id}')
+
+    return forms_structures
 
 
 def get_form_data(form):
@@ -84,25 +174,28 @@ def get_form_data(form):
 
     url = get_form_url(form.get('form_id', ''), form.get('last_date', 0),
                        '|'.join(form.get('statuses', ['approved', 'pending'])))
-
     response = fetch_data(url, form.get('keyfile'))
-    response_data = response.json()
-
     logger.info('Get form data successful')
 
-    return response_data
+    return response
 
 
 def save_data_to_db(**kwargs):
     """
-    Depending on the specified DB save data
+    Save data to Postgres or MongoDB, depending on the variable SURV_DBMS
     :return:
     """
-    all_forms = len(SURV_FORMS)
-    success_forms = 0
-    for form in SURV_FORMS:
+    total_success_forms = 0
+    forms = get_forms()
+    total_forms = len(forms)
+    logger.info(f'Total number of forms in server is: {len(forms)}')
+
+    for form in forms:
         # get columns
-        columns = [item.get('name') for item in form.get('fields')]
+        if form.get('fields') is not None:
+            columns = [item.get('name') for item in form.get('fields', [])]
+        else:
+            columns = []
         primary_key = form.get('unique_column')
 
         api_data = get_form_data(form)
@@ -113,18 +206,17 @@ def save_data_to_db(**kwargs):
         ]
 
         if isinstance(response_data, (list, )) and len(response_data):
-
             if SURV_DBMS is not None and (SURV_DBMS.lower() == 'postgres'
                                           or SURV_DBMS.lower().replace(
                                               ' ', '') == 'postgresdb'):
                 """
-                Dump data to postgres 
+                Dump data to postgres
                 """
 
                 # create the column strings
                 column_data = [
                     PostgresOperations.construct_column_strings(
-                        item, primary_key) for item in form.get('fields')
+                        item, primary_key) for item in (form.get('fields') or [])
                 ]
 
                 # create the Db
@@ -137,20 +229,21 @@ def save_data_to_db(**kwargs):
                 with connection:
                     cur = connection.cursor()
                     if SURV_RECREATE_DB == 'True':
-                        cur.execute("DROP TABLE IF EXISTS " + form.get('name'))
+                        cur.execute("DROP TABLE IF EXISTS \"" + form.get('name') + "\"")
                         cur.execute(db_query)
 
                     # insert data
                     upsert_query = PostgresOperations.construct_postgres_upsert_query(
                         form.get('name'), columns, primary_key)
 
-                    cur.executemany(
-                        upsert_query,
-                        DataCleaningUtil.update_row_columns(
-                            form.get('fields'), response_data))
-                    connection.commit()
-
-                    success_forms += 1
+                    if form.get('fields') is not None:
+                        cur.executemany(
+                            upsert_query,
+                            DataCleaningUtil.update_row_columns(
+                                form.get('fields'), response_data)
+                        )
+                        connection.commit()
+                    total_success_forms += 1
 
             else:
                 """
@@ -162,16 +255,18 @@ def save_data_to_db(**kwargs):
                 mongo_operations = MongoOperations.construct_mongo_upsert_query(
                     response_data, primary_key)
                 collection.bulk_write(mongo_operations)
-                success_forms += 1
+                total_success_forms += 1
 
         else:
-            logger.error('The form {} has no data'.format(form.get('name')))
+            total_success_forms += 1
+            logger.warn('The form {} has no data'.format(form.get('name')))
 
-    if success_forms == all_forms:
+    if total_success_forms == total_forms:
+        logger.info(f'Loaded submissions of all the {total_forms} forms')
         return dict(success=True)
     else:
-        logger.error('Not all forms data loaded')
-        return dict(failure='Not all forms data loaded')
+        logger.error(f'Only {total_success_forms} forms loaded out of a total of {total_forms} forms')
+        raise AirflowException('Not all forms data loaded')
 
 
 def sync_db_with_server(**context):

@@ -111,7 +111,11 @@ class DataCleaningUtil:
         """
         columns = [item.get('name') or item.get('db_name') for item in fields]
         for row_data in list(data):
-            row_columns = row_data.keys()
+            if row_data is not None:
+                row_columns = list(row_data.keys())
+                
+            else:
+                row_columns = []
 
             missing_columns = list(set(columns) - set(row_columns))
 
@@ -123,10 +127,11 @@ class DataCleaningUtil:
                             fields
                         )
                     )
-                    row_data.setdefault(
-                        column,
-                        cls.set_column_defaults(field_obj.get('type', None))
-                    )
+                    if row_data is not None:
+                        row_data.setdefault(
+                            column,
+                            cls.set_column_defaults(field_obj.get('type', None))
+                        )
         return data
 
     @staticmethod
