@@ -157,6 +157,20 @@ def get_forms():
                 'name': 'SubmissionDate',
                 'type': 'datetime'
             })
+            # Adding other fields
+            fields.append({
+                'name': 'formdef_version',
+                'type': 'text'
+            })
+            fields.append({
+                'name': 'review_quality',
+                'type': 'text'
+            })
+            fields.append({
+                'name': 'review_status',
+                'type': 'text'
+            })
+
             forms_structures.append({
                 'form_id': form.get('id'),
                 'name': form.get('title'),
