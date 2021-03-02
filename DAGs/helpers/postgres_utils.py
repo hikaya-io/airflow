@@ -115,6 +115,14 @@ class PostgresOperations:
         elif field_type in ['object', 'json']:
             column_map = '\"' + column_name + '\" jsonb'
 
+        # Converting dates, times, and datetimes
+        elif field_type == 'datetime':
+            column_map = '\"' + column_name + '\" timestamp'
+        elif field_type == 'date':
+            column_map = '\"' + column_name + '\" date'
+        elif field_type == 'time':
+            column_map = '\"' + column_name + '\" time'
+
         else:
             column_map = '\"' + column_name + '\" TEXT'
 
