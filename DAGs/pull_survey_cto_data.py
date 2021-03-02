@@ -8,7 +8,7 @@ from airflow.operators.python_operator import PythonOperator
 from helpers.utils import (DataCleaningUtil, logger)
 from helpers.mongo_utils import MongoOperations
 from helpers.postgres_utils import PostgresOperations
-
+from helpers.requests import create_requests_session
 from helpers.task_utils import notify, get_daily_start_date
 from helpers.configs import (
     SURV_SERVER_NAME,
@@ -81,16 +81,18 @@ def get_forms():
     # TODO Flatten the fields
     # TODO convert fields types properly
     """
-    session = requests.Session()
+    session = create_requests_session(debug=True)
     # Get CSRF token
     try:
         res = session.get(f'https://{SURV_SERVER_NAME}.surveycto.com/')
         res.raise_for_status()
         csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
     except requests.exceptions.HTTPError as e:
-        logger.error('Couldn\'t load SurveyCTO landing page for getting the CSRF token')
+        logger.error(e)
+        raise AirflowException('Couldn\'t load SurveyCTO landing page for getting the CSRF token')
     except requests.exceptions.RequestException as e:
-        logger.error('Unexpected error loading SurveyCTO landing page')
+        logger.error(e)
+        raise AirflowException('Unexpected error loading SurveyCTO landing page')
 
     auth_basic = requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD)
     # TODO add a retry mechanism on this first request
