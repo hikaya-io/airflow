@@ -80,7 +80,7 @@ def get_forms():
     # TODO Flatten the fields
     # TODO convert fields types properly
     """
-    session = create_requests_session(debug=True)
+    session = create_requests_session(debug=False)
     # Get CSRF token
     try:
         res = session.get(f'https://{SURV_SERVER_NAME}.surveycto.com/')
