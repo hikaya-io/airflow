@@ -123,6 +123,11 @@ class PostgresOperations:
         elif field_type == 'time':
             column_map = '\"' + column_name + '\" time'
 
+        elif field_type == 'select_one':
+            column_map = '\"' + column_name + '\" TEXT'
+        elif field_type == 'select_multiple':
+            column_map = '\"' + column_name + '\" TEXT []'
+
         else:
             column_map = '\"' + column_name + '\" TEXT'
 
