@@ -80,29 +80,10 @@ class DataCleaningUtil:
         : param column_type: column type
         : return column_string: Postgres query compatible string
         """
-
-        return None
-
-        if column_type.lower() in ['int', 'integer']:
-            return None
-
-        if column_type.lower() == 'decimal':
-            return None
-
         if column_type.lower() == 'char':
             return ''
-
-        if column_type.lower() == 'boolean':
-            return None
-
-        if column_type.lower() == 'array':
-            return None
-
-        if column_type.lower() == 'object' or column_type.lower() == 'json':
-            return None
-
         else:
-            return ''
+            return None
 
     @classmethod
     def update_row_columns(cls, fields, data):
