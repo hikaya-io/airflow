@@ -263,6 +263,8 @@ def save_data_to_db(**kwargs):
                     for submission in response_data:
                         # TODO Group all the fields by types and do transformations on them
                         integer_columns = [field.get('name') for field in form.get('fields') if field.get('type') == 'integer']
+                        select_multiple_columns = [field.get('name') for field in form.get('fields') if field.get('type') == 'select_multiple']
+                        # datetime_columns = [field.get('name') for field in form.get('fields') if field.get('type') in ['date', 'time', 'datetime']]
                         for col in integer_columns: # Set default and null values for integers in the submission
                             try:
                                 if submission[col] == '':
@@ -273,6 +275,13 @@ def save_data_to_db(**kwargs):
                                 submission[col] = None
                             except ValueError:
                                 logger.error('Field is not convertible to integer')
+                        for col in select_multiple_columns:
+                            try:
+                                if submission[col] == '':
+                                    submission[col] = [] # ? Should it?
+                                # else: # TODO convert the column into an array
+                            except KeyError:
+                                submission[col] = None
 
                     if form.get('fields') is not None:
                         cur.executemany(
