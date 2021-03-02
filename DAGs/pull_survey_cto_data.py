@@ -17,7 +17,6 @@ from helpers.configs import (
     SURV_FORMS,
     SURV_DBMS,
     SURV_MONGO_DB_NAME,
-    SURV_RECREATE_DB,
     SURV_MONGO_URI,
     POSTGRES_DB,
 )
@@ -253,9 +252,9 @@ def save_data_to_db(**kwargs):
 
                 with connection:
                     cur = connection.cursor()
-                    if SURV_RECREATE_DB == 'True':
-                        cur.execute("DROP TABLE IF EXISTS \"" + form.get('name') + "\"")
-                        cur.execute(db_query)
+
+                    cur.execute("DROP TABLE IF EXISTS \"" + form.get('name') + "\"")
+                    cur.execute(db_query)
 
                     # insert data
                     upsert_query = PostgresOperations.construct_postgres_upsert_query(
