@@ -70,7 +70,8 @@ class PostgresOperations:
         :param values: list reference values to be deleted
         :return query: the DELETE query string
         """
-        query = 'DELETE FROM {}'.format(table) + ' WHERE ' + \
+        # TODO doublequote columns in below query
+        query = 'DELETE FROM \"{}'.format(table) + '\" WHERE ' + \
                 column + '= ANY(Array[' + ', '.join(["'{}'".format(str(item)) for item in values]) + '])'
 
         return query
@@ -147,7 +148,7 @@ class PostgresOperations:
         primary_key_values_list = []
         with connection:
             cursor = connection.cursor()
-            cursor.execute("DECLARE super_cursor BINARY CURSOR FOR SELECT " + primary_key + " FROM " + form)
+            cursor.execute("DECLARE super_cursor BINARY CURSOR FOR SELECT \"" + primary_key + "\" FROM \"" + form + "\"")
 
             while True:
                 cursor.execute("FETCH 1000 FROM super_cursor")
