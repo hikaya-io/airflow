@@ -14,7 +14,6 @@ from helpers.configs import (
     SURV_SERVER_NAME,
     SURV_USERNAME,
     SURV_PASSWORD,
-    SURV_FORMS,
     SURV_DBMS,
     SURV_MONGO_DB_NAME,
     SURV_MONGO_URI,
@@ -327,7 +326,8 @@ def sync_db_with_server(**context):
     if success_dump.get('success'):
         deleted_items = []
         deleted_data = []
-        for form in SURV_FORMS:
+        forms = get_forms()
+        for form in forms:
             primary_key = form.get('unique_column')
 
             response_data = [
