@@ -245,7 +245,7 @@ def save_data_to_db(**kwargs):
 
                 # create the Db
                 db_query = PostgresOperations.construct_postgres_create_table_query(
-                    form.get('name'), column_data)
+                    form.get('form_id'), column_data)
 
                 connection = PostgresOperations.establish_postgres_connection(
                     POSTGRES_DB)
@@ -253,12 +253,12 @@ def save_data_to_db(**kwargs):
                 with connection:
                     cur = connection.cursor()
 
-                    cur.execute("DROP TABLE IF EXISTS \"" + form.get('name') + "\"")
+                    cur.execute("DROP TABLE IF EXISTS \"" + form.get('form_id') + "\"")
                     cur.execute(db_query)
 
                     # insert data
                     upsert_query = PostgresOperations.construct_postgres_upsert_query(
-                        form.get('name'), columns, primary_key)
+                        form.get('form_id'), columns, primary_key)
 
                     for submission in response_data:
                         # TODO Group all the fields by types and do transformations on them
@@ -346,13 +346,13 @@ def sync_db_with_server(**context):
                 connection = PostgresOperations.establish_postgres_connection(
                     POSTGRES_DB)
                 db_data_keys = PostgresOperations.get_all_row_ids_in_db(
-                    connection, primary_key, form.get('name'))
+                    connection, primary_key, form.get('form_id'))
 
                 deleted_ids = list(set(db_data_keys) - set(api_data_keys))
                 if len(deleted_ids) > 0:
                     # remove deleted items from the db
                     query_string = PostgresOperations.construct_postgres_delete_query(
-                        form.get('name'), primary_key, deleted_ids)
+                        form.get('form_id'), primary_key, deleted_ids)
 
                     with connection:
                         cur = connection.cursor()
@@ -363,7 +363,7 @@ def sync_db_with_server(**context):
 
                         deleted_items.append(
                             dict(keys=deleted_ids,
-                                 table=form.get('name'),
+                                 table=form.get('form_id'),
                                  number_of_items=len(deleted_ids)))
 
                     deleted_data.append(dict(success=deleted_items))
