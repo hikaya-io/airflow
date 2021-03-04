@@ -229,7 +229,8 @@ def save_data_to_db(**kwargs):
             for item in api_data
         ]
 
-        if isinstance(response_data, (list, )) and len(response_data):
+
+        if isinstance(response_data, (list, )):
             if SURV_DBMS is not None and (SURV_DBMS.lower() == 'postgres'
                                           or SURV_DBMS.lower().replace(
                                               ' ', '') == 'postgresdb'):
