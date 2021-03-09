@@ -79,12 +79,21 @@ def flatten_surveycto_fields(fields):
     SurveyCTO fields of a form are "nested".
     A field can be a "group field" and have subfields.
     """
-    # TODO Are submissions with multiple repeat groups being handled?
     flattened_fields = []
     for field in fields:
         if 'children' in field:
-            # TODO diff between repeat groups and normal groups
-            flattened_fields.extend(flatten_surveycto_fields(field.get('children')))
+            if field.get('type') == 'repeat':
+                for child in field.get('children'):
+                    for k in list(range(1, 5)):
+                        new_field = {
+                            'name': child.get('name') + '_' + str(k),
+                            'type': child.get('type')
+                        }
+                        if 'children' in child:
+                            new_field['children'] = flatten_surveycto_fields(field.get('children'))
+                        flattened_fields.append(new_field)
+            if field.get('type') == 'group':
+                flattened_fields.extend(flatten_surveycto_fields(field.get('children')))
         else:
             flattened_fields.append(field)
     return flattened_fields
