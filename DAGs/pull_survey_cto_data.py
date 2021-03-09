@@ -257,8 +257,6 @@ def save_data_to_db(**kwargs):
 
                 with connection:
                     cur = connection.cursor()
-
-                    cur.execute("DROP TABLE IF EXISTS \"" + form.get('form_id') + "\"")
                     cur.execute(db_query)
 
                     # insert data
