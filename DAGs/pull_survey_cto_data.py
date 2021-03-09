@@ -143,6 +143,8 @@ def get_forms():
                 'name': field.get('name'),
                 'type': field.get('dataType')
             } for field in fields]
+
+            fields_names = [field.get('name') for field in fields]
             # Adding the KEY__ field
             if 'KEY' not in fields_names: # !Fetched in flattening
                 fields.append({
