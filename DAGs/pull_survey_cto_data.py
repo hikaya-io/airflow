@@ -73,6 +73,7 @@ def get_form_url(form_id, last_date, status):
     return form_url
 
 def flatten_surveycto_fields(fields):
+    # TODO suppose 5 submissions on each repeat group
     """
     Flatten fields of a SurveyCTO form fields.
     SurveyCTO fields of a form are "nested".
@@ -82,6 +83,7 @@ def flatten_surveycto_fields(fields):
     flattened_fields = []
     for field in fields:
         if 'children' in field:
+            # TODO diff between repeat groups and normal groups
             flattened_fields.extend(flatten_surveycto_fields(field.get('children')))
         else:
             flattened_fields.append(field)
@@ -162,7 +164,6 @@ def get_forms():
             form_structure_model = form_details.json().get('formStructureModel')
             first_language = form_structure_model.get('defaultLanguage')
             fields = form_structure_model['summaryElementsPerLanguage'][first_language]['children']
-
             # Convert/transform fields to our format
             # fields = list(map(convert_surveycto_field, fields))
 
@@ -215,7 +216,6 @@ def get_forms():
 
 def get_form_data(form):
     """
-    TODO properly handle invalid responses (e.g Bad Credentials)
     load form data from SurveyCTO API
     :param form:
     :return:
@@ -224,7 +224,7 @@ def get_form_data(form):
     url = get_form_url(form.get('form_id', ''), form.get('last_date', 0),
                        '|'.join(form.get('statuses', ['approved', 'pending'])))
     response = fetch_data(url, form.get('keyfile'))
-    logger.info('Get form data successful')
+    # TODO properly handle invalid responses (e.g Bad Credentials)
 
     return response
 
@@ -236,11 +236,13 @@ def save_data_to_db(**kwargs):
     """
     total_success_forms = 0
     forms = get_forms()
+
+    forms = list(filter(lambda x: x['form_id'] in ['airflow_sample_form', 'baseline_bmz_v1'], forms))
+
     total_forms = len(forms)
     logger.info(f'Total number of forms in server is: {len(forms)}')
 
     for form in forms:
-        # get columns
         if form.get('fields') is not None:
             columns = [item.get('name') for item in form.get('fields', [])]
         else:
@@ -355,6 +357,9 @@ def sync_db_with_server(**context):
         deleted_data = []
 
         forms = get_forms()
+
+        forms = list(filter(lambda x: x['form_id'] in ['airflow_sample_form', 'baseline_bmz_v1'], forms))
+
         for form in forms:
             primary_key = form.get('unique_column')
 
