@@ -48,7 +48,6 @@ SURV_USERNAME = Variable.get('SURV_USERNAME', default_var='')
 SURV_MONGO_URI = Variable.get('SURV_MONGO_URI', default_var='')
 SURV_DBMS = Variable.get('SURV_DBMS', default_var=None)
 SURV_MONGO_DB_NAME = Variable.get('SURV_MONGO_DB_NAME', default_var='')
-SURV_RECREATE_DB = Variable.get('SURV_RECREATE_DB', default_var=False)
 
 """
 ONA Variables

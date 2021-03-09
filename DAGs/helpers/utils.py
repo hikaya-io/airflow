@@ -74,32 +74,16 @@ class DataCleaningUtil:
         return flat_json_data
 
     @staticmethod
-    def set_column_defaults(type):
+    def set_column_defaults(column_type):
         """
         Set data column default values for missing columns
-        : param type: data type
+        : param column_type: column type
         : return column_string: Postgres query compatible string
         """
-        if type.lower() == 'int':
-            return None
-
-        if type.lower() == 'decimal':
-            return None
-
-        if type.lower() == 'char':
+        if column_type.lower() == 'char':
             return ''
-
-        if type.lower() == 'boolean':
-            return None
-
-        if type.lower() == 'array':
-            return None
-
-        if type.lower() == 'object' or type.lower() == 'json':
-            return None
-
         else:
-            return ''
+            return None
 
     @classmethod
     def update_row_columns(cls, fields, data):

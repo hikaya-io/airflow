@@ -94,8 +94,6 @@ Below is how the form list should look
 ````
 `SURV_DBMS = ''` :- Database management system to dump the data (mongo/mongodb, postgres/postgresdb)
 
-`SURV_RECREATE_DB = ''` :- set if you want new tables to be always created isntead of updating the values
-
 ## Upload the Variables from a json file
 Download the `variables_template.json` on this repo and update it with the correct values.
 

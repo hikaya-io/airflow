@@ -14,10 +14,8 @@ from helpers.configs import (
     SURV_SERVER_NAME,
     SURV_USERNAME,
     SURV_PASSWORD,
-    SURV_FORMS,
     SURV_DBMS,
     SURV_MONGO_DB_NAME,
-    SURV_RECREATE_DB,
     SURV_MONGO_URI,
     POSTGRES_DB,
 )
@@ -81,7 +79,7 @@ def get_forms():
     # TODO Flatten the fields
     # TODO convert fields types properly
     """
-    session = create_requests_session(debug=True)
+    session = create_requests_session(debug=False)
     # Get CSRF token
     try:
         res = session.get(f'https://{SURV_SERVER_NAME}.surveycto.com/')
@@ -143,13 +141,42 @@ def get_forms():
             # fields = list(map(convert_surveycto_field, fields))
             fields = [{
                 'name': field.get('name'),
-                'type': 'text' # ! Defaulting all fields to TEXT PostgreSQL type
+                'type': field.get('dataType')
             } for field in fields]
             # Adding the KEY__ field
-            fields.append({
-                'name': 'KEY',
-                'type': 'text'
-            })
+            if 'KEY' not in fields_names: # !Fetched in flattening
+                fields.append({
+                    'name': 'KEY',
+                    'type': 'text'
+                })
+            if 'CompletionDate' not in fields_names:
+            # Adding the CompletionDate/SubmissionDate datetime fields
+                fields.append({
+                    'name': 'CompletionDate',
+                    'type': 'datetime'
+                })
+            if 'SubmissionDate' not in fields_names: # !Fetched in flattening
+                fields.append({
+                    'name': 'SubmissionDate',
+                    'type': 'datetime'
+                })
+            if 'formdef_version' not in fields_names: # !Fetched in flattening
+                # Adding other fields
+                fields.append({
+                    'name': 'formdef_version',
+                    'type': 'text'
+                })
+            if 'review_quality' not in fields_names:
+                fields.append({
+                    'name': 'review_quality',
+                    'type': 'text'
+                })
+            if 'review_status' not in fields_names:
+                fields.append({
+                    'name': 'review_status',
+                    'type': 'text'
+                })
+
             forms_structures.append({
                 'form_id': form.get('id'),
                 'name': form.get('title'),
@@ -207,7 +234,7 @@ def save_data_to_db(**kwargs):
             for item in api_data
         ]
 
-        if isinstance(response_data, (list, )) and len(response_data):
+        if isinstance(response_data, (list, )):
             if SURV_DBMS is not None and (SURV_DBMS.lower() == 'postgres'
                                           or SURV_DBMS.lower().replace(
                                               ' ', '') == 'postgresdb'):
@@ -223,26 +250,52 @@ def save_data_to_db(**kwargs):
 
                 # create the Db
                 db_query = PostgresOperations.construct_postgres_create_table_query(
-                    form.get('name'), column_data)
+                    form.get('form_id'), column_data)
 
                 connection = PostgresOperations.establish_postgres_connection(
                     POSTGRES_DB)
 
                 with connection:
                     cur = connection.cursor()
-                    if SURV_RECREATE_DB == 'True':
-                        cur.execute("DROP TABLE IF EXISTS \"" + form.get('name') + "\"")
-                        cur.execute(db_query)
+                    cur.execute(db_query)
 
                     # insert data
                     upsert_query = PostgresOperations.construct_postgres_upsert_query(
-                        form.get('name'), columns, primary_key)
+                        form.get('form_id'), columns, primary_key)
 
+                    for submission in response_data:
+                        # TODO Group all the fields by types and do transformations on them
+                        integer_columns = [field.get('name') for field in form.get('fields') if field.get('type') == 'integer']
+                        select_multiple_columns = [field.get('name') for field in form.get('fields') if field.get('type') == 'select_multiple']
+                        datetime_columns = [field.get('name') for field in form.get('fields') if field.get('type') in ['date', 'time', 'datetime']]
+                        for col in integer_columns: # Set default and null values for integers in the submission
+                            try:
+                                if submission[col] == '':
+                                    submission[col] = None # Empty string integer field defaults to None
+                                else:
+                                    submission[col] = int(submission[col])
+                            except KeyError: # Column is missing from a submission
+                                submission[col] = None
+                            except ValueError:
+                                logger.error('Field is not convertible to integer')
+                        for col in select_multiple_columns:
+                            try:
+                                if submission[col] == '':
+                                    submission[col] = [] # ? Should it?
+                                # else: # TODO convert the column into an array
+                            except KeyError:
+                                submission[col] = None
+                        for col in datetime_columns:
+                            try:
+                                if submission[col] == '':
+                                    submission[col] = None
+                            except KeyError: # Column is missing from a submission
+                                submission[col] = None
                     if form.get('fields') is not None:
                         cur.executemany(
                             upsert_query,
                             DataCleaningUtil.update_row_columns(
-                                form.get('fields'), response_data)
+                                form.get('fields'), response_data) # Need to Python type the response_data submissions
                         )
                         connection.commit()
                     total_success_forms += 1
@@ -282,7 +335,8 @@ def sync_db_with_server(**context):
     if success_dump.get('success'):
         deleted_items = []
         deleted_data = []
-        for form in SURV_FORMS:
+        forms = get_forms()
+        for form in forms:
             primary_key = form.get('unique_column')
 
             response_data = [
@@ -301,13 +355,13 @@ def sync_db_with_server(**context):
                 connection = PostgresOperations.establish_postgres_connection(
                     POSTGRES_DB)
                 db_data_keys = PostgresOperations.get_all_row_ids_in_db(
-                    connection, primary_key, form.get('name'))
+                    connection, primary_key, form.get('form_id'))
 
                 deleted_ids = list(set(db_data_keys) - set(api_data_keys))
                 if len(deleted_ids) > 0:
                     # remove deleted items from the db
                     query_string = PostgresOperations.construct_postgres_delete_query(
-                        form.get('name'), primary_key, deleted_ids)
+                        form.get('form_id'), primary_key, deleted_ids)
 
                     with connection:
                         cur = connection.cursor()
@@ -318,7 +372,7 @@ def sync_db_with_server(**context):
 
                         deleted_items.append(
                             dict(keys=deleted_ids,
-                                 table=form.get('name'),
+                                 table=form.get('form_id'),
                                  number_of_items=len(deleted_ids)))
 
                     deleted_data.append(dict(success=deleted_items))

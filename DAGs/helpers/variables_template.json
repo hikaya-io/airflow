@@ -8,7 +8,6 @@
   "SURV_MONGO_DB_NAME": "mongoDB name to connect to",
   "SURV_MONGO_URI": "mongo connection URI:- mongodb://username:password@host/db_name",
   "SURV_PASSWORD": "SurveyCTO server password",
-  "SURV_RECREATE_DB": "Enable creation of a table when True, or just data dumping when False",
   "SURV_SERVER_NAME": "SurveyCTO server",
   "SURV_USERNAME": "SurveyCTO username",
   "SURV_FORMS": [

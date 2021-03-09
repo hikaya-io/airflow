@@ -70,8 +70,8 @@ class PostgresOperations:
         :param values: list reference values to be deleted
         :return query: the DELETE query string
         """
-        query = 'DELETE FROM {}'.format(table) + ' WHERE ' + \
-                column + '= ANY(Array[' + ', '.join(["'{}'".format(str(item)) for item in values]) + '])'
+        query = 'DELETE FROM \"{}'.format(table) + '\" WHERE \"' + \
+                column + '\"= ANY(Array[' + ', '.join(["'{}'".format(str(item)) for item in values]) + '])'
 
         return query
 
@@ -88,27 +88,45 @@ class PostgresOperations:
         if column_name is None:
             column_name = column_data.get('db_name')
 
-        if column_data.get('type', '').lower() == 'int':
+        if column_data.get('type', '') is None:
+            field_type = ''
+        else:
+            field_type = column_data.get('type', '').lower()
+
+        # TODO time formats
+        # TODO select_one, select_multiple
+        # TODO Geopoints
+
+        if field_type in ['int', 'integer']:
             column_map = '\"' + column_name + '\" INT'
 
-        elif column_data.get('type', '').lower() == 'decimal':
+        elif field_type == 'decimal':
             column_map = '\"' + column_name + '\" REAL'
 
-        elif column_data.get('type', '').lower() == 'char':
+        elif field_type == 'char':
             column_map = '\"' + column_name + '\" CHAR(' + str(column_data.get('length', 100)) + ')'
 
-        elif column_data.get('type', '').lower() == 'boolean':
+        elif field_type == 'boolean':
             column_map = '\"' + column_name + '\" BOOLEAN'
 
-        elif column_data.get('type', '').lower() == 'boolean':
-            column_map = '\"' + column_name + '\" BOOLEAN'
-
-        elif column_data.get('type', '').lower() == 'array':
+        elif field_type == 'array':
             column_map = '\"' + column_name + '\" text[]'
 
-        elif column_data.get('type', '').lower() == 'object' or \
-                column_data.get('type', '').lower() == 'json':
+        elif field_type in ['object', 'json']:
             column_map = '\"' + column_name + '\" jsonb'
+
+        # Converting dates, times, and datetimes
+        elif field_type == 'datetime':
+            column_map = '\"' + column_name + '\" timestamp'
+        elif field_type == 'date':
+            column_map = '\"' + column_name + '\" date'
+        elif field_type == 'time':
+            column_map = '\"' + column_name + '\" time'
+
+        elif field_type == 'select_one':
+            column_map = '\"' + column_name + '\" TEXT'
+        elif field_type == 'select_multiple':
+            column_map = '\"' + column_name + '\" TEXT []'
 
         else:
             column_map = '\"' + column_name + '\" TEXT'
@@ -129,7 +147,7 @@ class PostgresOperations:
         primary_key_values_list = []
         with connection:
             cursor = connection.cursor()
-            cursor.execute("DECLARE super_cursor BINARY CURSOR FOR SELECT " + primary_key + " FROM " + form)
+            cursor.execute("DECLARE super_cursor BINARY CURSOR FOR SELECT \"" + primary_key + "\" FROM \"" + form + "\"")
 
             while True:
                 cursor.execute("FETCH 1000 FROM super_cursor")
@@ -143,4 +161,3 @@ class PostgresOperations:
                 primary_key_values_list = primary_key_values_list + row_ids
 
         return primary_key_values_list
-
