@@ -72,6 +72,20 @@ def get_form_url(form_id, last_date, status):
     form_url = f'https://{SURV_SERVER_NAME}.surveycto.com/api/v2/forms/data/wide/json/{form_id}?date={last_date}&r={status}'
     return form_url
 
+def flatten_surveycto_fields(fields):
+    """
+    Flatten fields of a SurveyCTO form fields.
+    SurveyCTO fields of a form are "nested".
+    A field can be a "group field" and have subfields.
+    """
+    # TODO Are submissions with multiple repeat groups being handled?
+    flattened_fields = []
+    for field in fields:
+        if 'children' in field:
+            flattened_fields.extend(flatten_surveycto_fields(field.get('children')))
+        else:
+            flattened_fields.append(field)
+    return flattened_fields
 
 def format_surveycto_fields(fields):
     new_fields = []
