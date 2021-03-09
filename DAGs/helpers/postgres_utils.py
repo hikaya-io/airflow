@@ -70,9 +70,8 @@ class PostgresOperations:
         :param values: list reference values to be deleted
         :return query: the DELETE query string
         """
-        # TODO doublequote columns in below query
-        query = 'DELETE FROM \"{}'.format(table) + '\" WHERE ' + \
-                column + '= ANY(Array[' + ', '.join(["'{}'".format(str(item)) for item in values]) + '])'
+        query = 'DELETE FROM \"{}'.format(table) + '\" WHERE \"' + \
+                column + '\"= ANY(Array[' + ', '.join(["'{}'".format(str(item)) for item in values]) + '])'
 
         return query
 
