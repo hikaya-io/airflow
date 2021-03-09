@@ -73,6 +73,18 @@ def get_form_url(form_id, last_date, status):
     return form_url
 
 
+def format_surveycto_fields(fields):
+    new_fields = []
+    for field in fields:
+        new_field = {
+            'name': field.get('name'),
+            'type': field.get('dataType')
+        }
+        if field.get('children') is not None: # for fields of types group, meta-data-group...
+            new_field['children'] = format_surveycto_fields(field.get('children'))
+        new_fields.append(new_field)
+    return new_fields
+
 def get_forms():
     """
     List the schema and fields of the forms
