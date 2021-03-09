@@ -144,32 +144,38 @@ def get_forms():
                 'type': field.get('dataType')
             } for field in fields]
             # Adding the KEY__ field
-            fields.append({
-                'name': 'KEY',
-                'type': 'text'
-            })
+            if 'KEY' not in fields_names: # !Fetched in flattening
+                fields.append({
+                    'name': 'KEY',
+                    'type': 'text'
+                })
+            if 'CompletionDate' not in fields_names:
             # Adding the CompletionDate/SubmissionDate datetime fields
-            fields.append({
-                'name': 'CompletionDate',
-                'type': 'datetime'
-            })
-            fields.append({
-                'name': 'SubmissionDate',
-                'type': 'datetime'
-            })
-            # Adding other fields
-            fields.append({
-                'name': 'formdef_version',
-                'type': 'text'
-            })
-            fields.append({
-                'name': 'review_quality',
-                'type': 'text'
-            })
-            fields.append({
-                'name': 'review_status',
-                'type': 'text'
-            })
+                fields.append({
+                    'name': 'CompletionDate',
+                    'type': 'datetime'
+                })
+            if 'SubmissionDate' not in fields_names: # !Fetched in flattening
+                fields.append({
+                    'name': 'SubmissionDate',
+                    'type': 'datetime'
+                })
+            if 'formdef_version' not in fields_names: # !Fetched in flattening
+                # Adding other fields
+                fields.append({
+                    'name': 'formdef_version',
+                    'type': 'text'
+                })
+            if 'review_quality' not in fields_names:
+                fields.append({
+                    'name': 'review_quality',
+                    'type': 'text'
+                })
+            if 'review_status' not in fields_names:
+                fields.append({
+                    'name': 'review_status',
+                    'type': 'text'
+                })
 
             forms_structures.append({
                 'form_id': form.get('id'),
