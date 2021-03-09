@@ -165,10 +165,10 @@ def get_forms():
 
             # Convert/transform fields to our format
             # fields = list(map(convert_surveycto_field, fields))
-            fields = [{
-                'name': field.get('name'),
-                'type': field.get('dataType')
-            } for field in fields]
+
+            fields = format_surveycto_fields(fields)
+            fields = flatten_surveycto_fields(fields)
+
             # Adding the KEY__ field
             fields.append({
                 'name': 'KEY',
