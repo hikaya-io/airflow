@@ -14,7 +14,7 @@ import time
 from bs4 import BeautifulSoup
 from requests import Session
 
-from DAGs.helpers.utils import logger
+from helpers.utils import logger
 from helpers.slack_utils import (SlackNotification, )
 from helpers.configs import (
     NEWDEA_BASE_URL, NEWDEA_USERNAME, NEWDEA_PASSWORD, FTP_SERVER_HOST, DAG_EMAIL,
@@ -55,7 +55,7 @@ default_args = {
 dag = DAG(
     'newdea_LWF_data_export_pipeline',
     default_args=default_args,
-    schedule_interval='0 0 * * 0,3',
+    schedule_interval='0 5 * * 1-5',
 )
 
 sshHook = SSHHook(ssh_conn_id="ftp_msql_server")
