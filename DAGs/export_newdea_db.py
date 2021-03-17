@@ -1,26 +1,37 @@
+import os
+import time
 from urllib.parse import urljoin
+from datetime import datetime, timedelta
+from bs4 import BeautifulSoup
+from requests import Session
 
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from airflow.contrib.operators.ssh_operator import SSHOperator
 from airflow.contrib.hooks.ssh_hook import SSHHook
-from airflow.hooks.base_hook import BaseHook
-from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
-
-from datetime import datetime, timedelta
-
-import time
-
-from bs4 import BeautifulSoup
-from requests import Session
-
+from helpers.task_utils import notify, get_daily_start_date
 from helpers.utils import logger
-from helpers.slack_utils import (SlackNotification, )
 from helpers.configs import (
-    NEWDEA_BASE_URL, NEWDEA_USERNAME, NEWDEA_PASSWORD, FTP_SERVER_HOST, DAG_EMAIL,
-    FTP_SERVER_USERNAME, FTP_SERVER_PASSWORD, FTP_SERVER_EMAIL, SLACK_CONN_ID,
-    MSSQL_USERNAME, MSSQL_PASSWORD
+    NEWDEA_BASE_URL, NEWDEA_USERNAME, NEWDEA_PASSWORD, FTP_SERVER_HOST, DAG_EMAIL, FTP_SERVER_USERNAME, 
+    FTP_SERVER_PASSWORD, FTP_SERVER_EMAIL, FTP_SERVER_FOLDER, MSSQL_USERNAME, MSSQL_PASSWORD
 )
+
+DAG_NAME = 'newdea_LWF_data_export_pipeline'
+PIPELINE = 'newdea'
+sshHook = SSHHook(ssh_conn_id="ftp_msql_server")
+
+
+default_args = {
+    'owner': 'Hikaya',
+    'depends_on_past': False,
+    'start_date': get_daily_start_date(),
+    'email': [DAG_EMAIL],
+    'catchup': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=30),
+    'on_failure_callback': notify(status='failed', pipeline=PIPELINE),
+    'on_success_callback': notify(status='success', pipeline=PIPELINE)
+}
 
 """
 Custom expception for Newdea issues
@@ -40,26 +51,6 @@ class NewdeaError(Exception):
         else:
             return 'NewdeaError has been raised'
 
-
-default_args = {
-    'owner': 'Hikaya',
-    'depends_on_past': False,
-    'start_date': datetime(2020, 11, 8),
-    'email': [DAG_EMAIL],
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=30),
-}
-
-dag = DAG(
-    'newdea_LWF_data_export_pipeline',
-    default_args=default_args,
-    schedule_interval='0 5 * * 1-5',
-)
-
-sshHook = SSHHook(ssh_conn_id="ftp_msql_server")
-slack_notification = SlackNotification()
 
 session = Session()
 session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ' \
@@ -83,7 +74,8 @@ def login():
             'M$C$SI$LC$Password$TB': NEWDEA_PASSWORD,
             'M$C$SI$LC$LoginButton': bs.select_one('#M_C_SI_LC_LoginButton').attrs['value'],
         }
-        session.post(urljoin(NEWDEA_BASE_URL, 'Common/SignIn.aspx'), data=data, allow_redirects=True)
+        session.post(urljoin(NEWDEA_BASE_URL, 'Common/SignIn.aspx'),
+                     data=data, allow_redirects=True)
         # This url has to be called to finalize login process
         res = session.get(urljoin(NEWDEA_BASE_URL, 'Portal/ListCenters.aspx?CHECK_PREFERRED_CENTER=true'),
                           allow_redirects=True)
@@ -93,11 +85,13 @@ def login():
 
 
 def check_for_active_export():
-    url = urljoin(NEWDEA_BASE_URL, 'NonProfit/ProjectCenter/RapidSystemAdmin/DataExportLogReport.aspx')
+    url = urljoin(
+        NEWDEA_BASE_URL, 'NonProfit/ProjectCenter/RapidSystemAdmin/DataExportLogReport.aspx')
     res = session.get(url)
     if res.ok:
         bs = BeautifulSoup(res.text, 'html.parser')
-        status_columns = bs.select('table[summary="DxLogTable"] tbody tr td:nth-child(7)')
+        status_columns = bs.select(
+            'table[summary="DxLogTable"] tbody tr td:nth-child(7)')
         for col in status_columns:
             col_text = col.get_text().strip()
             if 'Queued' in col_text:
@@ -107,11 +101,13 @@ def check_for_active_export():
 
 
 def get_export_status():
-    url = urljoin(NEWDEA_BASE_URL, 'NonProfit/ProjectCenter/RapidSystemAdmin/DataExportLogReport.aspx')
+    url = urljoin(
+        NEWDEA_BASE_URL, 'NonProfit/ProjectCenter/RapidSystemAdmin/DataExportLogReport.aspx')
     res = session.get(url)
     if res.ok:
         bs = BeautifulSoup(res.text, 'html.parser')
-        status_columns = bs.select('table[summary="DxLogTable"] tbody tr td:nth-child(7)')
+        status_columns = bs.select(
+            'table[summary="DxLogTable"] tbody tr td:nth-child(7)')
         if len(status_columns):
             col_text = status_columns[0].get_text().strip()
             return 'Success' not in col_text, col_text
@@ -120,7 +116,8 @@ def get_export_status():
 
 
 def do_export():
-    url = urljoin(NEWDEA_BASE_URL, 'NonProfit/ProjectCenter/RapidSystemAdmin/DataExport.aspx')
+    url = urljoin(NEWDEA_BASE_URL,
+                  'NonProfit/ProjectCenter/RapidSystemAdmin/DataExport.aspx')
     res = session.get(url)
     if res.ok:
         bs = BeautifulSoup(res.text, 'html.parser')
@@ -134,7 +131,7 @@ def do_export():
             '__VIEWSTATE1': bs.select_one('#__VIEWSTATE1').attrs['value'],
             '__VIEWSTATE': bs.select_one('#__VIEWSTATE').attrs['value'],
             'ctl00$M$C$Content$ServerName$TB': FTP_SERVER_HOST,
-            'ctl00$M$C$Content$ServerFolder$TB': '',
+            'ctl00$M$C$Content$ServerFolder$TB': FTP_SERVER_FOLDER,
             'ctl00$M$C$Content$UserName$TB': FTP_SERVER_USERNAME,
             'ctl00$M$C$Content$Password$TB': FTP_SERVER_PASSWORD,
             'ctl00$M$C$Content$EmailAddress$TB': FTP_SERVER_EMAIL,
@@ -189,98 +186,78 @@ def export_newdea_db(**context):
         raise NewdeaError('Unable to login!')
 
 
-def task_success_slack_notification(context):
-    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    att_pipeline = 'mssql' if context['task_instance'].task_id == 'restore_newdea_db' else 'newdea'
-    attachments = slack_notification.construct_slack_message(
-        context,
-        'success',
-        att_pipeline
-    )
-
-    success_alert = SlackWebhookOperator(
-        task_id='slack_alert_success',
-        http_conn_id='slack',
-        webhook_token=slack_webhook_token,
-        attachments=attachments,
-        username='airflow'
-    )
-    return success_alert.execute(context=context)
-
-
-def task_failed_slack_notification(context):
-    slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
-    att_pipeline = 'mssql' if context['task_instance'].task_id == 'restore_newdea_db' else 'newdea'
-    attachments = slack_notification.construct_slack_message(
-        context,
-        'failed',
-        att_pipeline
-    )
-
-    failed_alert = SlackWebhookOperator(
-        task_id='slack_alert_failed',
-        http_conn_id='slack',
-        webhook_token=slack_webhook_token,
-        attachments=attachments,
-        username='airflow')
-    return failed_alert.execute(context=context)
-
-
 restore_DB_command = """
 set -e
-cd /home/dots/
+cd /home/dots/newdea_backup
+
 unset -v latest_export
-rm -fv *.bak
 for file in *.bak.zip; do
-  [[ $file -nt $latest_export ]] && latest_export=$file
+[[ $file -nt $latest_export ]] && latest_export=$file
 done
+shopt -s extglob
+rm -fv !($latest_export)
 
-export_file=`echo $latest_export | cut -d'.' -f 1`
+unzip -t $latest_export
+rm -fv ../sql_backup/*
+unzip $latest_export -d ../sql_backup
 
-if unzip -t $export_file".bak.zip"
-then
-echo -e "\n"$(date -u): "NEWDEA DB RESTORE STARTED (Using file: $latest_export)"
-backupfile=$export_file".bak"
-unzip $export_file".bak.zip"
+export_file_name=`echo $latest_export | cut -d'.' -f 1`
+backup_file=$export_file_name".bak"
 
+cd ../sql_backup
 cat > temp.sql <<- EOM
 USE master;
 GO
 ALTER DATABASE newdea_db SET SINGLE_USER WITH ROLLBACK IMMEDIATE
-RESTORE DATABASE [newdea_db] FROM  DISK = N'/home/dots/exported_file.bak'
+RESTORE DATABASE [newdea_db] FROM  DISK = N'/var/opt/mssql/backup/exported_file.bak'
 ALTER DATABASE newdea_db SET MULTI_USER;
 GO
 EOM
-
 sed -i "s/exported_file.bak/$backupfile/g" temp.sql
-sqlcmd -S localhost -U {} -P {} -i temp.sql
-rm -f temp.sql $backupfile export_backup/*
-mv $export_file".bak.zip" export_backup/
 
+echo -e "\n"$(date -u): "NEWDEA DB RESTORE STARTED (Using file: $backup_file)"
+docker exec -i lwf_newdea /opt/mssql-tools/bin/sqlcmd -S localhost -U {} -P {} -i /var/opt/mssql/backup/temp.sql
 echo $(date -u): "NEWDEA DB RESTORE ENDED"
-
-fi
 """.format(MSSQL_USERNAME, MSSQL_PASSWORD)
 
-run_data_export_from_newdea = PythonOperator(
-    task_id='export_db_from_newdea',
-    provide_context=True,
-    python_callable=export_newdea_db,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
-    dag=dag
-)
 
-restore_newdea_db = SSHOperator(
-    task_id='restore_newdea_db',
-    command=restore_DB_command,
-    ssh_hook=sshHook,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
-    dag=dag,
-)
+def get_sql_query(file_name):
+    absolute_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = absolute_path + "/helpers/" + file_name
+    file = open(file_path, mode='r')
+    query = file.read()
+    file.close()
+    return query
 
-run_data_export_from_newdea >> restore_newdea_db
 
-if __name__ == '__main__':
-    export_newdea_db()
+optimize_DB_command = """
+set -e
+cd /home/dots/sql_backup
+cat > views.sql <<- EOM
+{}
+docker exec -i lwf_newdea /opt/mssql-tools/bin/sqlcmd -S localhost -U {} -P {} -i /var/opt/mssql/backup/views.sql
+""".format(get_sql_query("views.sql"), MSSQL_USERNAME, MSSQL_PASSWORD)
+
+with DAG(DAG_NAME, default_args=default_args,
+         schedule_interval='0 5 * * 1-5') as dag:
+    export_db_from_newdea = PythonOperator(
+        task_id='export_db_from_newdea',
+        provide_context=True,
+        python_callable=export_newdea_db,
+        dag=dag
+    )
+    restore_newdea_db = SSHOperator(
+        task_id='restore_newdea_db',
+        command=restore_DB_command,
+        ssh_hook=sshHook,
+        dag=dag,
+    )
+
+    optimize_newdea_db = SSHOperator(
+        task_id='optimize_newdea_db',
+        command=optimize_DB_command,
+        ssh_hook=sshHook,
+        dag=dag,
+    )
+
+    export_db_from_newdea >> restore_newdea_db >> optimize_newdea_db
