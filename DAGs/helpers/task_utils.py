@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, time
 
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
+from airflow.hooks.base_hook import BaseHook
 
 from helpers.slack_utils import SlackNotification
 
