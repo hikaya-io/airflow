@@ -25,7 +25,8 @@ def notify(status, pipeline, alert=True, connection='slack'):
                 http_conn_id=connection,
                 task_id=task_id,
                 webhook_token=slack_webhook_token,
-                attachments=attachments
+                attachments=attachments,
+                username='airflow'
             )
 
             slack_hook.post_webhook(attachments)
