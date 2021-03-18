@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime, timedelta, time
 
-from airflow.hooks.slack import SlackWebHook
+from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
+from airflow.hooks.base_hook import BaseHook
 
 from helpers.slack_utils import SlackNotification
 
@@ -14,14 +15,19 @@ def notify(status, pipeline, alert=True, connection='slack'):
     """
 
     def callback(context):
+        slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
         task_id = context.get('task_instance').task_id
         dag_id = context.get('task_instance').dag_id
         if alert:
-            slack_hook = SlackWebHook(
-                connection
-            )  # TODO: Store connection name in Airflow connections
             attachments = SlackNotification.construct_slack_message(
                 context=context, status=status, pipeline=pipeline)
+            slack_hook = SlackWebhookOperator(
+                http_conn_id=connection,
+                task_id=task_id,
+                webhook_token=slack_webhook_token,
+                attachments=attachments
+            )
+
             slack_hook.post_webhook(attachments)
         elif not alert and status == 'failed':
             logger.warning(
