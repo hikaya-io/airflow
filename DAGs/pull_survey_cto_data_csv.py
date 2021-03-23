@@ -1,7 +1,10 @@
-import logging
-import requests
-import re
+from io import StringIO
 from datetime import timedelta
+import logging
+import re
+
+import requests
+import pandas
 
 from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
@@ -37,8 +40,11 @@ default_args = {
 }
 
 
-def get_forms():
-    print("a")
+def csv_to_pd(csv):
+    """
+    Parse a CSV string and loads it into a Pandas dataframe
+    """
+    return pandas.read_csv(StringIO(csv))
 
 
 def import_form_submissions(form):
@@ -54,13 +60,8 @@ def import_form_submissions(form):
     test = requests.get(csv_url, auth=auth_basic)
 
     # Pandas loading
-    from io import StringIO
-    import pandas
-
-    string_io = StringIO(test.text)
-    df = pandas.read_csv(string_io)
-    # print(df.shape)
-    # print(df.head(5))
+    df = csv_to_pd(test.text)
+    print(df.head(5))
     print(df.info())
     print(df.describe())
 
@@ -69,8 +70,6 @@ def import_form_submissions(form):
         res = session.get(f"https://{SURV_SERVER_NAME}.surveycto.com/")
         res.raise_for_status()
         csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
-        print("csrf_token")
-        print(csrf_token)
     except requests.exceptions.HTTPError as e:
         logger.error(e)
         raise AirflowException(
@@ -117,20 +116,16 @@ def import_form_submissions(form):
 
     for field in repeat_fields:
         if field.get("dataType") == "repeat":
-            print("Found a repeat group...===================")
-            print(field)
             csv_url = f"https://{SURV_SERVER_NAME}.surveycto.com/api/v1/forms/data/csv/{form_id}/{field.get('name')}"
             test = requests.get(csv_url, auth=auth_basic)
-            string_io = StringIO(test.text)
-            df = pandas.read_csv(string_io)
+            df = csv_to_pd(test.text)
             print(df.shape)
             print(df.head(5))
             print(df.describe())
-            # Group them by "PARENT KEY"
+
+            # Group repeat groups submissions by "PARENT KEY"
             grouped = df.groupby("PARENT_KEY")
-            print("GROUPED")
             print(grouped)
-            # print(grouped.shape)
             print(grouped.head(5))
             print(grouped.describe())
 
