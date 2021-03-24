@@ -213,7 +213,7 @@ RESTORE DATABASE [newdea_db] FROM  DISK = N'/var/opt/mssql/backup/exported_file.
 ALTER DATABASE newdea_db SET MULTI_USER;
 GO
 EOM
-sed -i "s/exported_file.bak/$backupfile/g" temp.sql
+sed -i "s/exported_file.bak/$backup_file/g" temp.sql
 
 echo -e "\n"$(date -u): "NEWDEA DB RESTORE STARTED (Using file: $backup_file)"
 docker exec -i lwf_newdea /opt/mssql-tools/bin/sqlcmd -S localhost -U {} -P {} -i /var/opt/mssql/backup/temp.sql
@@ -234,9 +234,12 @@ optimize_DB_command = """
 set -e
 cd /home/dots/sql_backup
 cat > views.sql <<- EOM
-{}
-docker exec -i lwf_newdea /opt/mssql-tools/bin/sqlcmd -S localhost -U {} -P {} -i /var/opt/mssql/backup/views.sql
-""".format(get_sql_query("views.sql"), MSSQL_USERNAME, MSSQL_PASSWORD)
+{0}
+docker exec -i lwf_newdea /opt/mssql-tools/bin/sqlcmd -S localhost -U {2} -P {3} -i /var/opt/mssql/backup/views.sql
+cat > indices.sql <<- EOM
+{1}
+docker exec -i lwf_newdea /opt/mssql-tools/bin/sqlcmd -S localhost -U {2} -P {3} -i /var/opt/mssql/backup/indices.sql
+""".format(get_sql_query("views.sql"), get_sql_query("indices.sql"), MSSQL_USERNAME, MSSQL_PASSWORD)
 
 with DAG(DAG_NAME, default_args=default_args,
          schedule_interval='0 5 * * 1-5') as dag:
