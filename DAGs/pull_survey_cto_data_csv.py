@@ -21,7 +21,14 @@ from helpers.configs import (
     SURV_MONGO_DB_NAME,
     SURV_MONGO_URI,
     POSTGRES_DB,
+    POSTGRES_DB_PASSWORD,
+    POSTGRES_USER,
+    POSTGRES_HOST,
+    POSTGRES_PORT,
 )
+
+from helpers.postgres_utils_sqlalchemy import PostgresOperations
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +58,17 @@ def import_form_submissions(form):
     """
     CSV SCTO import documentation: https://docs.surveycto.com/05-exporting-and-publishing-data/01-overview/09.data-format.html
     """
+    db = PostgresOperations(
+        POSTGRES_USER,
+        POSTGRES_DB_PASSWORD,
+        POSTGRES_HOST,
+        POSTGRES_PORT,
+        POSTGRES_DB,
+    )
     form_id = form.get("id")
     auth_basic = requests.auth.HTTPBasicAuth(SURV_USERNAME, SURV_PASSWORD)
     # CSV direct
-    csv_url = (
-        f"https://{SURV_SERVER_NAME}.surveycto.com/api/v1/forms/data/csv/{form_id}"
-    )
+    csv_url = f"https://{SURV_SERVER_NAME}.surveycto.com/api/v1/forms/data/csv/{form_id}?date=1616535957"
     test = requests.get(csv_url, auth=auth_basic)
 
     # Pandas loading
@@ -64,6 +76,8 @@ def import_form_submissions(form):
     print(df.head(5))
     print(df.info())
     print(df.describe())
+    # Save dataframe into PostgreSQL
+    df.to_sql(form_id, db.engine, if_exists="replace")
 
     session = create_requests_session(debug=False)
     try:
@@ -122,6 +136,8 @@ def import_form_submissions(form):
             print(df.shape)
             print(df.head(5))
             print(df.describe())
+            # Save dataframe into PostgreSQL
+            df.to_sql(form_id + "_" + field.get("name"), db.engine, if_exists="replace")
 
             # Group repeat groups submissions by "PARENT KEY"
             grouped = df.groupby("PARENT_KEY")
