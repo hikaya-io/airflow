@@ -81,6 +81,7 @@ NEWDEA_BASE_URL = Variable.get(
 NEWDEA_USERNAME = Variable.get('NEWDEA_USERNAME', default_var='')
 NEWDEA_PASSWORD = Variable.get('NEWDEA_PASSWORD', default_var='')
 FTP_SERVER_HOST = Variable.get('FTP_SERVER_HOST', default_var='')
+FTP_SERVER_FOLDER = Variable.get('FTP_SERVER_FOLDER', default_var='')
 FTP_SERVER_USERNAME = Variable.get('FTP_SERVER_USERNAME', default_var='')
 FTP_SERVER_PASSWORD = Variable.get('FTP_SERVER_PASSWORD', default_var='')
 FTP_SERVER_EMAIL = Variable.get('FTP_SERVER_EMAIL', default_var='')
