@@ -1,5 +1,6 @@
 import os
 import time
+import inspect
 from urllib.parse import urljoin
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
@@ -20,6 +21,10 @@ DAG_NAME = 'newdea_LWF_data_export_pipeline'
 PIPELINE = 'newdea'
 sshHook = SSHHook(ssh_conn_id="ftp_msql_server")
 
+def notification_callback(context):
+    status = "success" if "on_success_callback" in inspect.stack()[
+        1].code_context[0] else "failed"
+    notify(context, status, pipeline=PIPELINE)
 
 default_args = {
     'owner': 'Hikaya',
@@ -29,8 +34,8 @@ default_args = {
     'catchup': False,
     'retries': 1,
     'retry_delay': timedelta(minutes=30),
-    'on_failure_callback': notify(status='failed', pipeline=PIPELINE),
-    'on_success_callback': notify(status='success', pipeline=PIPELINE)
+    'on_failure_callback': notification_callback,
+    'on_success_callback': notification_callback
 }
 
 """
