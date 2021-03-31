@@ -22,7 +22,15 @@ class SurveyCTO:
         Mainly used for logging in and generating a Python Requests session to make
         authenticated requests.
         """
-        pass
+        try:
+            res = self.session.get(f"https://{self.server_name}.surveycto.com/")
+            res.raise_for_status()
+            csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
+            return csrf_token
+        except requests.exceptions.HTTPError as e:
+            raise e
+        except requests.exceptions.RequestException as e:
+            raise e
 
     def get_all_forms():
         """Get a list of all the forms of the SurveyCTO server
