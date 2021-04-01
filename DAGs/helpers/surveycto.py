@@ -1,4 +1,5 @@
 import re
+import logging
 from io import StringIO
 
 import requests
@@ -8,8 +9,10 @@ from requests.exceptions import HTTPError, RequestException
 from helpers.requests import create_requests_session
 
 
+logger = logging.getLogger(__name__)
+
 # TODO very generic utils, move out of here
-def csv_to_pd(csv):
+def csv_to_pandas(csv):
     """
     Parse a CSV string and loads it into a Pandas dataframe
     """
@@ -40,8 +43,12 @@ class SurveyCTO:
             csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
             return csrf_token
         except requests.exceptions.HTTPError as e:
+            logger.error('Could not load SurveyCTO landing page for getting the CSRF token')
+            logger.error(e)
             raise e
         except requests.exceptions.RequestException as e:
+            logger.error('Unexpected error loading SurveyCTO landing page')
+            logger.error(e)
             raise e
 
     def get_all_forms(self):
@@ -58,18 +65,15 @@ class SurveyCTO:
                 }
             )
         except HTTPError as e:
-            print('exception')
+            logger.error('Error getting list of SurveyCTO forms')
+            logger.error(e)
+            raise e
         except RequestException as e:
-            print('exception')
+            logger.error('Unexpected error getting list of SurveyCTO forms')
+            logger.error(e)
+            raise e
 
-        if forms_request.status_code != 200:
-            # logger.error(forms_request.text)
-            # logger.error('Could not retrieve the list of forms')
-            print('Could not retrieve the list of forms')
-        else:
-            forms = forms_request.json()
-            # print(forms)
-            return forms['forms']
+        return forms_request.json()["forms"]
 
     def get_form(self, id):
         """Get a form's details by its ID
@@ -97,16 +101,15 @@ class SurveyCTO:
                 },
             )
         except HTTPError as e:
-            print('exception')
+            logger.error(f'Error getting details of form of ID: {id}')
+            logger.error(e)
+            raise e
         except RequestException as e:
-            print('exception')
+            logger.error(f'Unexpected error getting details of form of ID: {id}')
+            logger.error(e)
+            raise e
 
-        if form_details.status_code == 200:
-            # print(form_details.json())
-            return form_details.json()
-        else:
-            print(form_details)
-            print(form_details.text)
+        return form_details.json()
 
     def get_form_submissions(self, id):
         """Get all submissions of a form
@@ -125,16 +128,17 @@ class SurveyCTO:
             form_submissions = self.session.get(url, auth=self.auth_basic)
             # TODO handle errors
             # Loading into Pandas
-            if form_submissions.text and form_submissions.status_code == 200:
-                df = csv_to_pd(form_submissions.text)
+            if form_submissions.text:
+                df = csv_to_pandas(form_submissions.text)
                 return df
-            else: # Form has no submissions, OR request failed
-                # If it has no submissions, we have no idea of its structure, so we can't save it
+            else: # Form has no submissions
                 return pandas.DataFrame()
         except HTTPError as e:
-            print('exception')
+            logger.error(f'Error getting submissions of form of ID: {id}')
+            logger.error(e)
+            raise e
         except RequestException as e:
-            print('exception')
+            logger.error(f'Unexpected error getting submissions of form of ID: {id}')
 
     def get_repeat_group_submissions(self, form_id, field_name):
         """Get submission of the repeat groups
@@ -147,15 +151,18 @@ class SurveyCTO:
         try:
             repeat_group_submissions = self.session.get(url, auth=self.auth_basic)
         except HTTPError as e:
-            print('exception')
+            logger.error(f'Error getting submissions of form of ID: {id}')
+            logger.error(e)
+            raise e
         except RequestException as e:
-            print('exception')
+            logger.error(f'Unexpected error getting submissions of form of ID: {id}')
+            logger.error(e)
+            raise e
 
         if repeat_group_submissions.status_code == 200 and repeat_group_submissions.text:
-            df = csv_to_pd(repeat_group_submissions.text)
+            df = csv_to_pandas(repeat_group_submissions.text)
             return df
-        else: # Form has no submissions, OR request failed
-            # If it has no submissions, we have no idea of its structure, so we can't save it
+        else: # Form has no submissions. Returning empty dataframe
             return pandas.DataFrame()
 
     def get_repeat_groups(self, fields):
