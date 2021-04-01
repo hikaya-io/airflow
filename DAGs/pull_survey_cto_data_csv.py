@@ -54,21 +54,28 @@ def import_forms_and_submissions(**kwargs):
     print(len(forms))
 
     for form in forms:
-        submissions_dataframe = scto_client.get_form_submissions(form["id"])
-        submissions_dataframe.to_sql(form["id"], db.engine, if_exists="replace")
+        try:
+            submissions_dataframe = scto_client.get_form_submissions(form["id"])
+            submissions_dataframe.to_sql(form["id"], db.engine, if_exists="replace")
+            logger.info(f"Saved first-level submissions of form {form['id']}")
 
-        form_details = scto_client.get_form(form["id"])
-        form_structure_model = form_details.get("formStructureModel")
-        first_language = form_structure_model.get("defaultLanguage")
-        fields = form_structure_model["summaryElementsPerLanguage"][first_language][
-            "children"
-        ]
-        repeat_groups = scto_client.get_repeat_groups(fields)
+            form_details = scto_client.get_form(form["id"])
+            form_structure_model = form_details.get("formStructureModel")
+            first_language = form_structure_model.get("defaultLanguage")
+            fields = form_structure_model["summaryElementsPerLanguage"][first_language][
+                "children"
+            ]
+            repeat_groups = scto_client.get_repeat_groups(fields)
 
-        for repeat_group in repeat_groups:
-            dataframe = scto_client.get_repeat_group_submissions(form["id"], repeat_group["name"])
-            dataframe.to_sql(form["id"], db.engine, if_exists="replace")
-        form_details = scto_client.get_form(form["id"])
+            for repeat_group in repeat_groups:
+                dataframe = scto_client.get_repeat_group_submissions(form["id"], repeat_group["name"])
+                dataframe.to_sql(form["id"], db.engine, if_exists="replace")
+                logger.info(f"Saved repeat group {repeat_group['name']} of form {form['id']}")
+
+            form_details = scto_client.get_form(form["id"])
+        except:
+            # TODO Keep track of which forms had exceptions on them
+            logger.error(f"Unexpected error handling form of ID: {form['id']}. Please see previous messages.")
 
 
 with DAG(DAG_NAME, default_args=default_args, schedule_interval="@daily") as dag:
