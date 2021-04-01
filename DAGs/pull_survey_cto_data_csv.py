@@ -1,6 +1,7 @@
 from datetime import timedelta
 import logging
 import re
+import inspect
 
 import requests
 import pandas
@@ -23,6 +24,11 @@ from helpers.configs import (
 from helpers.surveycto import SurveyCTO
 from helpers.postgres_utils_sqlalchemy import PostgresOperations
 
+def notification_callback(context):
+    # ! Duplicated from export_newdea_db.py
+    status = "success" if "on_success_callback" in inspect.stack()[
+        1].code_context[0] else "failed"
+    notify(context, status, pipeline=PIPELINE)
 
 logger = logging.getLogger(__name__)
 DAG_NAME = "dots_survey_cto_data_csv_pipeline"
@@ -34,12 +40,13 @@ default_args = {
     "catchup": False,
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": notify(status="failed", pipeline=PIPELINE),
-    "on_success_callback": notify(status="success", pipeline=PIPELINE),
+    "on_failure_callback": notification_callback,
+    "on_success_callback": notification_callback,
 }
 
 
 def import_forms_and_submissions(**kwargs):
+    # TODO Save the form itself, and data about it such as repeat groups, last loaded..., in a dedicated table
     # TODO Keep track of which forms had exceptions on them
     # TODO handle MongoDB storage
     logger.info(f"Loading data from SurveyCTO server {SURV_SERVER_NAME}...")
