@@ -9,33 +9,5 @@
   "SURV_MONGO_URI": "mongo connection URI:- mongodb://username:password@host/db_name",
   "SURV_PASSWORD": "SurveyCTO server password",
   "SURV_SERVER_NAME": "SurveyCTO server",
-  "SURV_USERNAME": "SurveyCTO username",
-  "SURV_FORMS": [
-	{
-		"name": "name of the form (table name uses this so it should not have spaces)",
-		"unique_column": "PRIMARY KEY COLUMN (used for references so, the column must be unique)",
-		"form_id": "form ID as on SurveyCTO survers",
-		"statuses": [
-			"approved",
-			"pending",
-			"rejected"
-		],
-		"last_date": "Last submission date for data being fetched. Accepts url-encoded dates of Epoc(Oct%2013%2C%202015%2000%3A00%3A00%20AM)",
-		"fields": [
-          {
-            "name": "field_1",
-            "type": "data_type (VAR:-for less than 100 chars, Text:- for long texts)"
-          },
-          {
-            "name": "first_name",
-            "type": "var:"
-          },
-          {
-            "name": "description",
-            "type": "text"
-          }
-
-		]
-	}
-	]
+  "SURV_USERNAME": "SurveyCTO username"
 }
