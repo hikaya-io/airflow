@@ -59,9 +59,7 @@ class SurveyCTO:
                 f'https://{self.server_name}.surveycto.com/console/forms-groups-datasets/get',
                 auth=self.auth_basic,
                 headers={
-                    "X-csrf-token": self.csrf_token,
-                    'X-OpenRosa-Version': '1.0',
-                    "Accept": "*/*"
+                    "X-csrf-token": self.csrf_token
                 }
             )
         except HTTPError as e:
@@ -85,19 +83,9 @@ class SurveyCTO:
         try:
             form_details = self.session.get(
                 f"https://{self.server_name}.surveycto.com/forms/{id}/workbook/export/load",
-                params={
-                    "includeFormStructureModel": "true",
-                    "submissionsPattern": "all",
-                    "fieldsPattern": "all",
-                    "fetchInBatches": "true",
-                    "includeDatasets": "false",
-                    "date": "1550011019966",  # TODO set date conveniently
-                },
                 auth=self.auth_basic,
                 headers={
-                    "X-csrf-token": self.csrf_token,
-                    "X-OpenRosa-Version": "1.0",
-                    "Accept": "*/*",
+                    "X-csrf-token": self.csrf_token
                 },
             )
             return form_details.json()
