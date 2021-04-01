@@ -1,7 +1,18 @@
+import re
+from io import StringIO
+
 import requests
+import pandas
 
 from helpers.requests import create_requests_session
 
+
+# TODO very generic utils, move out of here
+def csv_to_pd(csv):
+    """
+    Parse a CSV string and loads it into a Pandas dataframe
+    """
+    return pandas.read_csv(StringIO(csv))
 
 class SurveyCTO:
     # ? When to raise error of wrong credentials
@@ -32,23 +43,112 @@ class SurveyCTO:
         except requests.exceptions.RequestException as e:
             raise e
 
-    def get_all_forms():
+    def get_all_forms(self):
         """Get a list of all the forms of the SurveyCTO server
         """
-        pass
+        forms_request = self.session.get(
+            f'https://{self.server_name}.surveycto.com/console/forms-groups-datasets/get',
+            auth=self.auth_basic,
+            headers={
+                "X-csrf-token": self.csrf_token,
+                'X-OpenRosa-Version': '1.0',
+                "Accept": "*/*"
+            }
+        )
 
-    def get_form(id):
-        """Get a form by its ID
+        if forms_request.status_code != 200:
+            # logger.error(forms_request.text)
+            # logger.error('Could not retrieve the list of forms')
+            print('Could not retrieve the list of forms')
+        else:
+            forms = forms_request.json()
+            # print(forms)
+            return forms['forms']
+
+    def get_form(self, id):
+        """Get a form's details by its ID
+        Uses the SurveyCTO internal API
 
         Args:
             id (string): ID of the form
         """
-        pass
+        form_details = self.session.get(
+            f"https://{self.server_name}.surveycto.com/forms/{id}/workbook/export/load",
+            params={
+                "includeFormStructureModel": "true",
+                "submissionsPattern": "all",
+                "fieldsPattern": "all",
+                "fetchInBatches": "true",
+                "includeDatasets": "false",
+                "date": "1550011019966",  # TODO set date conveniently
+            },
+            auth=self.auth_basic,
+            headers={
+                "X-csrf-token": self.csrf_token,
+                "X-OpenRosa-Version": "1.0",
+                "Accept": "*/*",
+            },
+        )
+        if form_details.status_code == 200:
+            # print(form_details.json())
+            return form_details.json()
+        else:
+            print(form_details)
+            print(form_details.text)
 
-    def get_form_submissions(id):
+    def get_form_submissions(self, id):
         """Get all submissions of a form
+        This does not get data of repeat groups
+        Uses the SurveyCTO CSV import functionality, in the "long format"
 
         Args:
             id (string): ID of the form
         """
-        pass
+
+        # TODO How to handle repeat groups?
+        # TODO should this return repeat groups?
+
+        url = f"https://{self.server_name}.surveycto.com/api/v1/forms/data/csv/{id}"
+        # form_submissions = self.session.get(url, auth=self.auth_basic)
+        form_submissions = requests.get(url, auth=self.auth_basic)
+        # TODO handle errors
+        # Loading into Pandas
+        if form_submissions.text and form_submissions.status_code == 200:
+            df = csv_to_pd(form_submissions.text)
+            return df
+        else: # Form has no submissions, OR request failed
+            # If it has no submissions, we have no idea of its structure, so we can't save it
+            return pandas.DataFrame()
+
+    def get_repeat_group_submissions(self, form_id, field_name):
+        """Get submission of the repeat groups
+
+        Args:
+            form_id (string): IF of the form
+            field_name (string): Name of the repeat group field
+        """
+        url = f"https://{self.server_name}.surveycto.com/api/v1/forms/data/csv/{form_id}/{field_name}"
+        repeat_group_submissions = self.session.get(url, auth=self.auth_basic)
+
+        if repeat_group_submissions.status_code == 200 and repeat_group_submissions.text:
+            df = csv_to_pd(repeat_group_submissions.text)
+            return df
+        else: # Form has no submissions, OR request failed
+            # If it has no submissions, we have no idea of its structure, so we can't save it
+            return pandas.DataFrame()
+
+    def get_repeat_groups(self, fields):
+        """Get the repeat fields of the form
+        Mainly used in `get_form_repeat_group_submissions`
+
+        Args:
+        """
+        repeat_fields = []
+        for field in fields:
+            if field.get("dataType") == "repeat":
+                repeat_fields.append(field)
+            if field.get("children"):
+                # repeat_fields.append(get_repeat_groups(field.get("children")))
+                repeat_fields = repeat_fields + self.get_repeat_groups(field.get("children"))
+        return repeat_fields
+        
