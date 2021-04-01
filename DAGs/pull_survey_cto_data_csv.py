@@ -26,7 +26,7 @@ from helpers.configs import (
     POSTGRES_HOST,
     POSTGRES_PORT,
 )
-
+from helpers.surveycto import SurveyCTO
 from helpers.postgres_utils_sqlalchemy import PostgresOperations
 
 
@@ -161,8 +161,35 @@ def get_repeat_groups(fields):
 
 
 def import_forms_and_submissions(**kwargs):
-    # import_form_submissions({"id": "airflow_sample_form"})
-    import_form_submissions({"id": "baseline_bmz_v1"})
+    db = PostgresOperations(
+        POSTGRES_USER,
+        POSTGRES_DB_PASSWORD,
+        POSTGRES_HOST,
+        POSTGRES_PORT,
+        POSTGRES_DB,
+    ) # Needed for Pandas saving into DB
+
+    scto_client = SurveyCTO(SURV_SERVER_NAME, SURV_USERNAME, SURV_PASSWORD)
+    forms = scto_client.get_all_forms()
+    print(forms)
+    print(len(forms))
+
+    for form in forms:
+        submissions_dataframe = scto_client.get_form_submissions(form["id"])
+        submissions_dataframe.to_sql(form["id"], db.engine, if_exists="replace")
+
+        form_details = scto_client.get_form(form["id"])
+        form_structure_model = form_details.get("formStructureModel")
+        first_language = form_structure_model.get("defaultLanguage")
+        fields = form_structure_model["summaryElementsPerLanguage"][first_language][
+            "children"
+        ]
+        repeat_groups = scto_client.get_repeat_groups(fields)
+
+        for repeat_group in repeat_groups:
+            dataframe = scto_client.get_repeat_group_submissions(form["id"], repeat_group["name"])
+            dataframe.to_sql(form["id"], db.engine, if_exists="replace")
+        form_details = scto_client.get_form(form["id"])
 
 
 with DAG(DAG_NAME, default_args=default_args, schedule_interval="@daily") as dag:
