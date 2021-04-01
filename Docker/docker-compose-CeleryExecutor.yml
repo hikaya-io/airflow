@@ -96,3 +96,17 @@ services:
             - POSTGRES_DB=airflow
             - REDIS_PASSWORD=redispass
         command: worker
+
+
+    superset:
+        image: amancevice/superset
+        restart: always
+        depends_on:
+          - postgres
+          - redis
+        # environment:
+        #   MAPBOX_API_KEY: ${MAPBOX_API_KEY}
+        ports:
+          - "8088:8088"
+        volumes:
+          - ./superset/superset_config.py:/etc/superset/superset_config.py
