@@ -10,6 +10,15 @@ from pandas.io.json._normalize import nested_to_record
 import requests
 import json
 
+from helpers.configs import (
+    COMM_CARE_MONGO_DB_URI
+    COMM_CARE_MONGO_DB_NAME
+    COMM_CARE_API_URL
+    COMM_CARE_API_KEY
+    COMM_CARE_API_USERNAME
+    COMM_CARE_PROGRAM_ID
+)
+
 
 default_args = {
     'owner': 'Hikaya',
@@ -23,14 +32,6 @@ default_args = {
     'retries': 1,
     'retry_delay': timedelta(minutes=1),
 }
-
-# get all the variables
-COMM_CARE_MONGO_DB_URI = Variable.get('COMM_CARE_MONGO_DB_URI', default_var='')
-COMM_CARE_MONGO_DB_NAME = Variable.get('MONGO_DB_NAME', default_var='')
-COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
-COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
-COMM_CARE_API_USERNAME = Variable.get('COMM_CARE_API_USERNAME', default_var='')
-COMM_CARE_PROGRAM_ID = Variable.get('COMM_CARE_PROGRAM_ID', default_var='')
 
 dag = DAG('pull_data_from_comm_care', default_args=default_args)
 

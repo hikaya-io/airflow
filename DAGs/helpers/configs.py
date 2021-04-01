@@ -86,6 +86,16 @@ FTP_SERVER_PASSWORD = Variable.get('FTP_SERVER_PASSWORD', default_var='')
 FTP_SERVER_EMAIL = Variable.get('FTP_SERVER_EMAIL', default_var='')
 
 """
+CommCare Variables
+"""
+COMM_CARE_MONGO_DB_URI = Variable.get('COMM_CARE_MONGO_DB_URI', default_var='')
+COMM_CARE_MONGO_DB_NAME = Variable.get('MONGO_DB_NAME', default_var='')
+COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
+COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
+COMM_CARE_API_USERNAME = Variable.get('COMM_CARE_API_USERNAME', default_var='')
+COMM_CARE_PROGRAM_ID = Variable.get('COMM_CARE_PROGRAM_ID', default_var='')
+
+"""
 SQL Server Variables
 """
 MSSQL_USERNAME = Variable.get('MSSQL_USERNAME', default_var='')
