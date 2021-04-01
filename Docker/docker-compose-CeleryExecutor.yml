@@ -31,7 +31,7 @@ services:
             - REDIS_PASSWORD=redispass
         volumes:
             # - /Users/macbookpro/Documents/Hikaya/connectors:/usr/local/airflow/dags
-            - /home/hikaya/airflow/dags:/usr/local/airflow/dags
+            - ../DAGs:/usr/local/airflow/dags
             - ./requirements.txt:/requirements.txt
             # Uncomment to include custom plugins
             # - ./plugins:/usr/local/airflow/plugins
@@ -63,7 +63,7 @@ services:
             - webserver
         volumes:
             # - /Users/macbookpro/Documents/Hikaya/connectors:/usr/local/airflow/dags
-            - /home/hikaya/airflow/dags:/usr/local/airflow/dags
+            - ../DAGs:/usr/local/airflow/dags
             - ./requirements.txt:/requirements.txt
             # Uncomment to include custom plugins
             # - ./plugins:/usr/local/airflow/plugins
@@ -84,7 +84,7 @@ services:
             - scheduler
         volumes:
             # - /Users/macbookpro/Documents/Hikaya/connectors:/usr/local/airflow/dags
-            - /home/hikaya/airflow/dags:/usr/local/airflow/dags
+            - ../DAGs:/usr/local/airflow/dags
             - ./requirements.txt:/requirements.txt
             # Uncomment to include custom plugins
             # - ./plugins:/usr/local/airflow/plugins
