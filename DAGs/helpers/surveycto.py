@@ -3,6 +3,7 @@ from io import StringIO
 
 import requests
 import pandas
+from requests.exceptions import HTTPError, RequestException
 
 from helpers.requests import create_requests_session
 
@@ -46,15 +47,20 @@ class SurveyCTO:
     def get_all_forms(self):
         """Get a list of all the forms of the SurveyCTO server
         """
-        forms_request = self.session.get(
-            f'https://{self.server_name}.surveycto.com/console/forms-groups-datasets/get',
-            auth=self.auth_basic,
-            headers={
-                "X-csrf-token": self.csrf_token,
-                'X-OpenRosa-Version': '1.0',
-                "Accept": "*/*"
-            }
-        )
+        try:
+            forms_request = self.session.get(
+                f'https://{self.server_name}.surveycto.com/console/forms-groups-datasets/get',
+                auth=self.auth_basic,
+                headers={
+                    "X-csrf-token": self.csrf_token,
+                    'X-OpenRosa-Version': '1.0',
+                    "Accept": "*/*"
+                }
+            )
+        except HTTPError as e:
+            print('exception')
+        except RequestException as e:
+            print('exception')
 
         if forms_request.status_code != 200:
             # logger.error(forms_request.text)
@@ -72,23 +78,29 @@ class SurveyCTO:
         Args:
             id (string): ID of the form
         """
-        form_details = self.session.get(
-            f"https://{self.server_name}.surveycto.com/forms/{id}/workbook/export/load",
-            params={
-                "includeFormStructureModel": "true",
-                "submissionsPattern": "all",
-                "fieldsPattern": "all",
-                "fetchInBatches": "true",
-                "includeDatasets": "false",
-                "date": "1550011019966",  # TODO set date conveniently
-            },
-            auth=self.auth_basic,
-            headers={
-                "X-csrf-token": self.csrf_token,
-                "X-OpenRosa-Version": "1.0",
-                "Accept": "*/*",
-            },
-        )
+        try:
+            form_details = self.session.get(
+                f"https://{self.server_name}.surveycto.com/forms/{id}/workbook/export/load",
+                params={
+                    "includeFormStructureModel": "true",
+                    "submissionsPattern": "all",
+                    "fieldsPattern": "all",
+                    "fetchInBatches": "true",
+                    "includeDatasets": "false",
+                    "date": "1550011019966",  # TODO set date conveniently
+                },
+                auth=self.auth_basic,
+                headers={
+                    "X-csrf-token": self.csrf_token,
+                    "X-OpenRosa-Version": "1.0",
+                    "Accept": "*/*",
+                },
+            )
+        except HTTPError as e:
+            print('exception')
+        except RequestException as e:
+            print('exception')
+
         if form_details.status_code == 200:
             # print(form_details.json())
             return form_details.json()
@@ -109,16 +121,20 @@ class SurveyCTO:
         # TODO should this return repeat groups?
 
         url = f"https://{self.server_name}.surveycto.com/api/v1/forms/data/csv/{id}"
-        # form_submissions = self.session.get(url, auth=self.auth_basic)
-        form_submissions = requests.get(url, auth=self.auth_basic)
-        # TODO handle errors
-        # Loading into Pandas
-        if form_submissions.text and form_submissions.status_code == 200:
-            df = csv_to_pd(form_submissions.text)
-            return df
-        else: # Form has no submissions, OR request failed
-            # If it has no submissions, we have no idea of its structure, so we can't save it
-            return pandas.DataFrame()
+        try:
+            form_submissions = self.session.get(url, auth=self.auth_basic)
+            # TODO handle errors
+            # Loading into Pandas
+            if form_submissions.text and form_submissions.status_code == 200:
+                df = csv_to_pd(form_submissions.text)
+                return df
+            else: # Form has no submissions, OR request failed
+                # If it has no submissions, we have no idea of its structure, so we can't save it
+                return pandas.DataFrame()
+        except HTTPError as e:
+            print('exception')
+        except RequestException as e:
+            print('exception')
 
     def get_repeat_group_submissions(self, form_id, field_name):
         """Get submission of the repeat groups
@@ -128,7 +144,12 @@ class SurveyCTO:
             field_name (string): Name of the repeat group field
         """
         url = f"https://{self.server_name}.surveycto.com/api/v1/forms/data/csv/{form_id}/{field_name}"
-        repeat_group_submissions = self.session.get(url, auth=self.auth_basic)
+        try:
+            repeat_group_submissions = self.session.get(url, auth=self.auth_basic)
+        except HTTPError as e:
+            print('exception')
+        except RequestException as e:
+            print('exception')
 
         if repeat_group_submissions.status_code == 200 and repeat_group_submissions.text:
             df = csv_to_pd(repeat_group_submissions.text)
