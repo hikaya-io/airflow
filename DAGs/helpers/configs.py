@@ -30,12 +30,12 @@ SLACK_CONN_ID = Variable.get('SLACK_CONN_ID', default_var='slack')
 """
 DAG configurations
 """
-DAG_OWNER = Variable.get('DAG_OWNER', default_var='Hikaya-Dots')
+# DAG_OWNER = Variable.get('DAG_OWNER', default_var='Hikaya-Dots')
 DAG_EMAIL = Variable.get('DAG_EMAIL', default_var='amos@hikaya.io')
-DAG_EMAIL_ON_FAILURE = Variable.get('DAG_EMAIL_ON_FAILURE', default_var=True)
-DAG_EMAIL_ON_RETRY = Variable.get('DAG_EMAIL_ON_RETRY', default_var=False)
-DAG_NO_OF_RETRIES = Variable.get('DAG_NO_OF_RETRIES', default_var=2)
-DAG_RETRY_DELAY_IN_MINS = Variable.get('DAG_RETRY_DELAY_IN_MINS', default_var=1)
+# DAG_EMAIL_ON_FAILURE = Variable.get('DAG_EMAIL_ON_FAILURE', default_var=True)
+# DAG_EMAIL_ON_RETRY = Variable.get('DAG_EMAIL_ON_RETRY', default_var=False)
+# DAG_NO_OF_RETRIES = Variable.get('DAG_NO_OF_RETRIES', default_var=2)
+# DAG_RETRY_DELAY_IN_MINS = Variable.get('DAG_RETRY_DELAY_IN_MINS', default_var=1)
 
 
 """
