@@ -19,7 +19,7 @@ def csv_to_pandas(csv):
     return pandas.read_csv(StringIO(csv))
 
 class SurveyCTO:
-    # ? When to raise error of wrong credentials
+    # ? When to # raise error of wrong credentials
     # TODO get logger
     # TODO remove usaeg of Airflow exceptions
     # TODO to what shape should data be transfered to? Are we using pandas here?
@@ -100,6 +100,7 @@ class SurveyCTO:
                     "Accept": "*/*",
                 },
             )
+            return form_details.json()
         except HTTPError as e:
             logger.error(f'Error getting details of form of ID: {id}')
             logger.error(e)
@@ -109,7 +110,6 @@ class SurveyCTO:
             logger.error(e)
             raise e
 
-        return form_details.json()
 
     def get_form_submissions(self, id):
         """Get all submissions of a form

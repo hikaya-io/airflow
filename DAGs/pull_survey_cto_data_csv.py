@@ -40,18 +40,20 @@ default_args = {
 
 
 def import_forms_and_submissions(**kwargs):
+    # TODO Keep track of which forms had exceptions on them
+    # TODO handle MongoDB storage
+    logger.info(f"Loading data from SurveyCTO server {SURV_SERVER_NAME}...")
     db = PostgresOperations(
         POSTGRES_USER,
         POSTGRES_DB_PASSWORD,
         POSTGRES_HOST,
         POSTGRES_PORT,
         POSTGRES_DB,
-    ) # Needed for Pandas saving into DB
+    ) # Its engine is needed by Pandas for saving into the DB
 
     scto_client = SurveyCTO(SURV_SERVER_NAME, SURV_USERNAME, SURV_PASSWORD)
     forms = scto_client.get_all_forms()
-    print(forms)
-    print(len(forms))
+    logger.info(f"Found a total of {len(forms)} forms")
 
     for form in forms:
         try:
@@ -74,14 +76,18 @@ def import_forms_and_submissions(**kwargs):
 
             form_details = scto_client.get_form(form["id"])
         except:
-            # TODO Keep track of which forms had exceptions on them
             logger.error(f"Unexpected error handling form of ID: {form['id']}. Please see previous messages.")
 
 
 with DAG(DAG_NAME, default_args=default_args, schedule_interval="@daily") as dag:
 
     dag.doc_md = """
-    Doc
+    Load forms and their submissions from a SurveyCTO server.
+
+    First, a list of all the forms is loaded.
+    Then for each form, we get its details, including fields and their types.
+    Then we get submissions of that form, then we get submissions of the repeat groups of
+    that form separately.
     """
     t1 = PythonOperator(
         task_id="Save_data_to_DB",
