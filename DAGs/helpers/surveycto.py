@@ -4,8 +4,8 @@ from io import StringIO
 
 import requests
 from requests.exceptions import HTTPError
+from urllib.parse import quote
 import pandas
-from requests.exceptions import HTTPError, RequestException
 
 from helpers.requests import create_requests_session
 
@@ -91,7 +91,7 @@ class SurveyCTO:
         """
         try:
             form_details = self.session.get(
-                f"https://{self.server_name}.surveycto.com/forms/{id}/workbook/export/load",
+                f"https://{self.server_name}.surveycto.com/forms/{quote(id)}/workbook/export/load",
                 auth=self.auth_basic,
                 headers={
                     "X-csrf-token": self.csrf_token
@@ -120,7 +120,8 @@ class SurveyCTO:
         # TODO How to handle repeat groups?
         # TODO should this return repeat groups?
 
-        url = f"https://{self.server_name}.surveycto.com/api/v1/forms/data/csv/{id}"
+
+        url = f"https://{self.server_name}.surveycto.com/api/v1/forms/data/csv/{quote(id)}"
         try:
             form_submissions = self.session.get(url, auth=self.auth_basic)
             # TODO handle errors
@@ -144,7 +145,8 @@ class SurveyCTO:
             form_id (string): IF of the form
             field_name (string): Name of the repeat group field
         """
-        url = f"https://{self.server_name}.surveycto.com/api/v1/forms/data/csv/{form_id}/{field_name}"
+
+        url = f"https://{self.server_name}.surveycto.com/api/v1/forms/data/csv/{quote(form_id)}/{quote(field_name)}"
         try:
             repeat_group_submissions = self.session.get(url, auth=self.auth_basic)
         except HTTPError as e:
