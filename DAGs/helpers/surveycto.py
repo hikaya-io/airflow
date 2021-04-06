@@ -71,8 +71,16 @@ class SurveyCTO:
             logger.error('Unexpected error getting list of SurveyCTO forms')
             logger.error(e)
             raise e
-
-        return forms_request.json()["forms"]
+        
+        active_forms = [
+            form for form in forms_request.json()["forms"] 
+            if (
+                not form["testForm"] and
+                form["deployed"] and
+                form["completeSubmissionCount"] > 0
+            )
+        ]
+        return active_forms
 
     def get_form(self, id):
         """Get a form's details by its ID
