@@ -53,7 +53,9 @@ class SurveyCTO:
             raise e
 
     def get_all_forms(self):
-        """Get a list of all the forms of the SurveyCTO server
+        """
+        Get a list of all the deployed non-test forms of the SurveyCTO
+        server that have at least a submission.
         """
         try:
             forms_request = self.session.get(

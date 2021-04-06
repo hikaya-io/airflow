@@ -62,6 +62,8 @@ def import_forms_and_submissions(**kwargs):
     forms = scto_client.get_all_forms()
     logger.info(f"Found a total of {len(forms)} forms")
 
+    successfully_imported_forms = []
+
     for form in forms:
         try:
             submissions_dataframe = scto_client.get_form_submissions(form["id"])
@@ -81,10 +83,13 @@ def import_forms_and_submissions(**kwargs):
                 dataframe.to_sql(form["id"] + "___" + repeat_group["name"], db.engine, if_exists="replace")
                 logger.info(f"Saved repeat group {repeat_group['name']} of form {form['id']}")
 
-            form_details = scto_client.get_form(form["id"])
-        except:
+            successfully_imported_forms.append(form)
+        except Exception as e:
             logger.error(f"Unexpected error handling form of ID: {form['id']}. Please see previous messages.")
+            logger.error(e)
 
+    logger.info(f"Successfully imported {len(successfully_imported_forms)} form from a total of {len(forms)} forms")
+    logger.info(f"List of form IDs successfully imported: {[form['id'] for form in successfully_imported_forms]}")
 
 with DAG(DAG_NAME, default_args=default_args, schedule_interval="@daily") as dag:
 
