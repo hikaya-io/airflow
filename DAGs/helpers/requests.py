@@ -48,7 +48,7 @@ def create_requests_session(timeout=5, retries=3, debug=False):
 
     retry_strategy = Retry(
         total=retries,  
-        status_forcelist=[413, 429, 500, 502, 503, 504],
+        status_forcelist=[409, 413, 429, 500, 502, 503, 504],
         method_whitelist=["HEAD", "GET", "OPTIONS"],
         backoff_factor=1
     )
