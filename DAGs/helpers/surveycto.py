@@ -3,6 +3,7 @@ import logging
 from io import StringIO
 
 import requests
+from requests.exceptions import HTTPError
 import pandas
 from requests.exceptions import HTTPError, RequestException
 
@@ -42,11 +43,11 @@ class SurveyCTO:
             res.raise_for_status()
             csrf_token = re.search(r"var csrfToken = '(.+?)';", res.text).group(1)
             return csrf_token
-        except requests.exceptions.HTTPError as e:
+        except HTTPError as e:
             logger.error('Could not load SurveyCTO landing page for getting the CSRF token')
             logger.error(e)
             raise e
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             logger.error('Unexpected error loading SurveyCTO landing page')
             logger.error(e)
             raise e
@@ -66,7 +67,7 @@ class SurveyCTO:
             logger.error('Error getting list of SurveyCTO forms')
             logger.error(e)
             raise e
-        except RequestException as e:
+        except Exception as e:
             logger.error('Unexpected error getting list of SurveyCTO forms')
             logger.error(e)
             raise e
@@ -93,7 +94,7 @@ class SurveyCTO:
             logger.error(f'Error getting details of form of ID: {id}')
             logger.error(e)
             raise e
-        except RequestException as e:
+        except Exception as e:
             logger.error(f'Unexpected error getting details of form of ID: {id}')
             logger.error(e)
             raise e
@@ -125,7 +126,7 @@ class SurveyCTO:
             logger.error(f'Error getting submissions of form of ID: {id}')
             logger.error(e)
             raise e
-        except RequestException as e:
+        except Exception as e:
             logger.error(f'Unexpected error getting submissions of form of ID: {id}')
 
     def get_repeat_group_submissions(self, form_id, field_name):
@@ -142,7 +143,7 @@ class SurveyCTO:
             logger.error(f'Error getting submissions of form of ID: {id}')
             logger.error(e)
             raise e
-        except RequestException as e:
+        except Exception as e:
             logger.error(f'Unexpected error getting submissions of form of ID: {id}')
             logger.error(e)
             raise e
