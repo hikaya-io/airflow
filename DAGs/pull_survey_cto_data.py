@@ -36,7 +36,7 @@ def notification_callback(context):
 
 
 logger = logging.getLogger(__name__)
-DAG_NAME = "dots_survey_cto_data_csv_pipeline"
+DAG_NAME = "dots_survey_cto_data_pipeline"
 PIPELINE = "surveycto"
 default_args = {
     "owner": "Hikaya-Dots",
