@@ -36,7 +36,7 @@ def notification_callback(context):
 
 
 logger = logging.getLogger(__name__)
-DAG_NAME = "dots_survey_cto_data_csv_pipeline"
+DAG_NAME = "dots_survey_cto_data_pipeline"
 PIPELINE = "surveycto"
 default_args = {
     "owner": "Hikaya-Dots",
@@ -72,7 +72,8 @@ def import_forms_and_submissions(**kwargs):
     for form in forms:
         try:
             submissions_dataframe = scto_client.get_form_submissions(form["id"])
-            submissions_dataframe.to_sql(form["id"], db.engine, if_exists="replace")
+            # submissions_dataframe.to_sql(form["id"], db.engine, if_exists="replace")
+            submissions_dataframe.to_sql(form["id"][:60], db.engine, if_exists="replace")
             logger.info(f"Saved first-level submissions of form {form['id']}")
 
             form_details = scto_client.get_form(form["id"])
@@ -88,7 +89,8 @@ def import_forms_and_submissions(**kwargs):
                     form["id"], repeat_group["name"]
                 )
                 dataframe.to_sql(
-                    form["id"] + "___" + repeat_group["name"],
+                    # form["id"] + "___" + repeat_group["name"],
+                    form["id"][:30] + "___" + repeat_group["name"][:30],
                     db.engine,
                     if_exists="replace",
                 )
