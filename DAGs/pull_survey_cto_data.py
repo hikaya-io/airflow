@@ -24,11 +24,16 @@ from helpers.configs import (
 from helpers.surveycto import SurveyCTO
 from helpers.postgres_utils_sqlalchemy import PostgresOperations
 
+
 def notification_callback(context):
     # ! Duplicated from export_newdea_db.py
-    status = "success" if "on_success_callback" in inspect.stack()[
-        1].code_context[0] else "failed"
+    status = (
+        "success"
+        if "on_success_callback" in inspect.stack()[1].code_context[0]
+        else "failed"
+    )
     notify(context, status, pipeline=PIPELINE)
+
 
 logger = logging.getLogger(__name__)
 DAG_NAME = "dots_survey_cto_data_csv_pipeline"
@@ -56,7 +61,7 @@ def import_forms_and_submissions(**kwargs):
         POSTGRES_HOST,
         POSTGRES_PORT,
         POSTGRES_DB,
-    ) # Its engine is needed by Pandas for saving into the DB
+    )  # Its engine is needed by Pandas for saving into the DB
 
     scto_client = SurveyCTO(SURV_SERVER_NAME, SURV_USERNAME, SURV_PASSWORD)
     forms = scto_client.get_all_forms()
@@ -79,17 +84,32 @@ def import_forms_and_submissions(**kwargs):
             repeat_groups = scto_client.get_repeat_groups(fields)
 
             for repeat_group in repeat_groups:
-                dataframe = scto_client.get_repeat_group_submissions(form["id"], repeat_group["name"])
-                dataframe.to_sql(form["id"] + "___" + repeat_group["name"], db.engine, if_exists="replace")
-                logger.info(f"Saved repeat group {repeat_group['name']} of form {form['id']}")
+                dataframe = scto_client.get_repeat_group_submissions(
+                    form["id"], repeat_group["name"]
+                )
+                dataframe.to_sql(
+                    form["id"] + "___" + repeat_group["name"],
+                    db.engine,
+                    if_exists="replace",
+                )
+                logger.info(
+                    f"Saved repeat group {repeat_group['name']} of form {form['id']}"
+                )
 
             successfully_imported_forms.append(form)
         except Exception as e:
-            logger.error(f"Unexpected error handling form of ID: {form['id']}. Please see previous messages.")
+            logger.error(
+                f"Unexpected error handling form of ID: {form['id']}. Please see previous messages."
+            )
             logger.error(e)
 
-    logger.info(f"Successfully imported {len(successfully_imported_forms)} form from a total of {len(forms)} forms")
-    logger.info(f"List of form IDs successfully imported: {[form['id'] for form in successfully_imported_forms]}")
+    logger.info(
+        f"Successfully imported {len(successfully_imported_forms)} form from a total of {len(forms)} forms"
+    )
+    logger.info(
+        f"List of form IDs successfully imported: {[form['id'] for form in successfully_imported_forms]}"
+    )
+
 
 with DAG(DAG_NAME, default_args=default_args, schedule_interval="@daily") as dag:
 
