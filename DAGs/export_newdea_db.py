@@ -5,6 +5,11 @@ from urllib.parse import urljoin
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from requests import Session
+import os
+import sys
+
+file_dir = os.path.dirname(__file__)
+sys.path.append(file_dir)
 
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
