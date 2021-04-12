@@ -274,7 +274,10 @@ get_comm_care_application_task = SimpleHttpOperator(
     endpoint='/application/{}'.format(COMM_CARE_PROGRAM_ID),
     http_conn_id='comm_care_base_url',
     headers=request_headers,
-    xcom_push=True,
+    # https://github.com/apache/airflow/blob/2.0.1/airflow/models/baseoperator.py
+    # https://github.com/apache/airflow/blob/2.0.1/airflow/providers/http/operators/http.py#L99
+    # 'xcom_push' was deprecated, use 'BaseOperator.do_xcom_push' instead & it has a default value True
+    # xcom_push=True,
     log_response=True,
     dag=dag,
 )
