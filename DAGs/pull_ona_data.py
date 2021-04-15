@@ -4,6 +4,11 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
 
 import requests
+import os
+import sys
+
+file_dir = os.path.dirname(__file__)
+sys.path.append(file_dir)
 
 from helpers.dag_utils import (DagUtility,)
 from helpers.mongo_utils import (MongoOperations,)

@@ -5,6 +5,11 @@ from urllib.parse import urljoin
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from requests import Session
+import os
+import sys
+
+file_dir = os.path.dirname(__file__)
+sys.path.append(file_dir)
 
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
@@ -84,6 +89,10 @@ def login():
         # This url has to be called to finalize login process
         res = session.get(urljoin(NEWDEA_BASE_URL, 'Portal/ListCenters.aspx?CHECK_PREFERRED_CENTER=true'),
                           allow_redirects=True)
+        if not res.ok:
+            logger.debug('Request not successful')
+            logger.debug(res.text)
+
         return res.ok
 
     return False
@@ -116,6 +125,9 @@ def get_export_status():
         if len(status_columns):
             col_text = status_columns[0].get_text().strip()
             return 'Success' not in col_text, col_text
+    else:
+        logger.debug('Request failed')
+        logger.debug(res.text)
 
     return True, None
 
@@ -149,6 +161,12 @@ def do_export():
         res = session.post(url, data=data, allow_redirects=True)
         if res.ok:
             return 'The export job has been queued.' in res.text
+        else:
+            logger.debug('Request failed')
+            logger.debug(res.text)
+    else:
+        logger.debug('Request failed')
+        logger.debug(res.text)
 
     return False
 
