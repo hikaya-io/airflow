@@ -121,7 +121,7 @@ def import_forms_and_submissions(**kwargs):
             logger.error(
                 f"Unexpected error handling form of ID: {form['id']}. Please see previous messages."
             )
-            logger.error(e)
+            logger.exception(e)
 
     logger.info(
         f"Successfully imported {len(successfully_imported_forms)} form from a total of {len(forms)} forms"
