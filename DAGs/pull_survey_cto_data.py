@@ -108,7 +108,7 @@ def import_forms_and_submissions(**kwargs):
                     # TODO Provide details about which columns are conflicting
                     logger.error("Conflict in column names")
                 dataframe.to_sql(
-                    form["id"] + "___" + repeat_group["name"],
+                    form["id"][:40] + "_" + repeat_group["name"][:20], # TODO Find a better/shorter name
                     db.engine,
                     if_exists="replace",
                 )
