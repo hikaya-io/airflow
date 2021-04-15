@@ -21,12 +21,6 @@ from helpers.configs import (
 )
 
 
-dag = DAG(
-    'dots_ona_data_data_pipeline',
-    default_args=DagUtility.get_dag_default_args()
-)
-
-
 def get_ona_projects():
     """
     load ONA projects from ONA API
@@ -327,25 +321,33 @@ def task_failed_slack_notification(context):
         username='airflow')
     return failed_alert.execute(context=context)
 
+with DAG(
+    'dots_ona_data_data_pipeline',
+    default_args=DagUtility.get_dag_default_args()
+) as dag:
+    dag.doc_md="""
+        ## ONA Data export
+        > TODO document the DAG
+        #### Purpose
+        #### Outputs
+    """
+    save_ONA_data_to_db_task = PythonOperator(
+        task_id='Save_ONA_data_to_db',
+        provide_context=True,
+        python_callable=save_ona_data_to_db,
+        on_failure_callback=task_failed_slack_notification,
+        on_success_callback=task_success_slack_notification,
+        dag=dag,
+    )
 
-# TASKS
-save_ONA_data_to_db_task = PythonOperator(
-    task_id='Save_ONA_data_to_db',
-    provide_context=True,
-    python_callable=save_ona_data_to_db,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
-    dag=dag,
-)
 
+    sync_ONA_submissions_on_db_task = PythonOperator(
+        task_id='Sync_ONA_data_with_db',
+        provide_context=True,
+        python_callable=sync_submissions_on_db,
+        on_failure_callback=task_failed_slack_notification,
+        on_success_callback=task_success_slack_notification,
+        dag=dag,
+    )
 
-sync_ONA_submissions_on_db_task = PythonOperator(
-    task_id='Sync_ONA_data_with_db',
-    provide_context=True,
-    python_callable=sync_submissions_on_db,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
-    dag=dag,
-)
-
-save_ONA_data_to_db_task >> sync_ONA_submissions_on_db_task
+    save_ONA_data_to_db_task >> sync_ONA_submissions_on_db_task

@@ -10,6 +10,15 @@ from pandas.io.json._normalize import nested_to_record
 import requests
 import json
 
+from helpers.configs import (
+    COMM_CARE_MONGO_DB_URI,
+    COMM_CARE_MONGO_DB_NAME,
+    COMM_CARE_API_URL,
+    COMM_CARE_API_KEY,
+    COMM_CARE_API_USERNAME,
+    COMM_CARE_PROGRAM_ID,
+)
+
 
 default_args = {
     'owner': 'Hikaya',
@@ -24,15 +33,6 @@ default_args = {
     'retry_delay': timedelta(minutes=1),
 }
 
-# get all the variables
-COMM_CARE_MONGO_DB_URI = Variable.get('COMM_CARE_MONGO_DB_URI', default_var='')
-COMM_CARE_MONGO_DB_NAME = Variable.get('MONGO_DB_NAME', default_var='')
-COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
-COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
-COMM_CARE_API_USERNAME = Variable.get('COMM_CARE_API_USERNAME', default_var='')
-COMM_CARE_PROGRAM_ID = Variable.get('COMM_CARE_PROGRAM_ID', default_var='')
-
-dag = DAG('pull_data_from_comm_care', default_args=default_args)
 
 # set request headers and re-use
 request_headers = {"Authorization": "ApiKey {}:{}".format(
@@ -266,43 +266,48 @@ def clean_stale_data_on_db(**context):
 
             remove_deleted_submissions_from_db(instance_ids, form['name'])
 
+with DAG(
+    'pull_data_from_comm_care',
+    default_args=default_args
+) as dag:
+    dag.doc_md="""
+        ## CommCare export
+        > TODO document the DAG
+        #### Purpose
+        #### Outputs
+    """
+    get_comm_care_application_task = SimpleHttpOperator(
+        task_id='Get_Comm_Care_Application',
+        method='GET',
+        endpoint='/application/{}'.format(COMM_CARE_PROGRAM_ID),
+        http_conn_id='comm_care_base_url',
+        headers=request_headers,
+        xcom_push=True,
+        log_response=True,
+        dag=dag,
+    )
 
-# TASKS
-get_comm_care_application_task = SimpleHttpOperator(
-    task_id='Get_Comm_Care_Application',
-    method='GET',
-    endpoint='/application/{}'.format(COMM_CARE_PROGRAM_ID),
-    http_conn_id='comm_care_base_url',
-    headers=request_headers,
-    # https://github.com/apache/airflow/blob/2.0.1/airflow/models/baseoperator.py
-    # https://github.com/apache/airflow/blob/2.0.1/airflow/providers/http/operators/http.py#L99
-    # 'xcom_push' was deprecated, use 'BaseOperator.do_xcom_push' instead & it has a default value True
-    # xcom_push=True,
-    log_response=True,
-    dag=dag,
-)
+    extract_forms_task = PythonOperator(
+        task_id="Extract_Forms",
+        python_callable=get_application_module_forms,
+        provide_context=True,
+        dag=dag,
+    )
 
-extract_forms_task = PythonOperator(
-    task_id="Extract_Forms",
-    python_callable=get_application_module_forms,
-    provide_context=True,
-    dag=dag,
-)
+    fetch_forms_data_task = PythonOperator(
+        task_id="Fetch_Forms_Data",
+        python_callable=get_forms_data,
+        provide_context=True,
+        dag=dag,
+    )
 
-fetch_forms_data_task = PythonOperator(
-    task_id="Fetch_Forms_Data",
-    python_callable=get_forms_data,
-    provide_context=True,
-    dag=dag,
-)
+    delete_stale_data_task = PythonOperator(
+        task_id='Delete_Stale_Data',
+        python_callable=clean_stale_data_on_db,
+        provide_context=True,
+        dag=dag,
+    )
 
-delete_stale_data_task = PythonOperator(
-    task_id='Delete_Stale_Data',
-    python_callable=clean_stale_data_on_db,
-    provide_context=True,
-    dag=dag,
-)
-
-# PIPELINES
-get_comm_care_application_task >> extract_forms_task >> fetch_forms_data_task
-extract_forms_task >> delete_stale_data_task
+    # PIPELINES
+    get_comm_care_application_task >> extract_forms_task >> fetch_forms_data_task
+    extract_forms_task >> delete_stale_data_task

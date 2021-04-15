@@ -21,12 +21,6 @@ from helpers.configs import (
 )
 
 
-dag = DAG(
-    'dots_KoboToolbox_data_pipeline',
-    default_args=DagUtility.get_dag_default_args()
-)
-
-
 def get_kobo_forms():
     """
     load Kobo projects from KoboToolBox API
@@ -327,25 +321,33 @@ def task_failed_slack_notification(context):
         username='airflow')
     return failed_alert.execute(context=context)
 
+with DAG(
+    'dots_KoboToolbox_data_pipeline',
+    default_args=DagUtility.get_dag_default_args()
+) as dag:
+    dag.doc_md = """
+        ## KOBO export
+        > TODO document the DAG
+        #### Purpose
+        #### Outputs
+    """
+    save_kobo_data_to_db_task = PythonOperator(
+        task_id='Save_Kobo_data_to_db',
+        provide_context=True,
+        python_callable=save_kobo_data_to_db,
+        on_failure_callback=task_failed_slack_notification,
+        on_success_callback=task_success_slack_notification,
+        dag=dag,
+    )
 
-# TASKS
-save_kobo_data_to_db_task = PythonOperator(
-    task_id='Save_Kobo_data_to_db',
-    provide_context=True,
-    python_callable=save_kobo_data_to_db,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
-    dag=dag,
-)
 
+    sync_kobo_submissions_on_db_task = PythonOperator(
+        task_id='Sync_kobo_data_with_db',
+        provide_context=True,
+        python_callable=sync_submissions_on_db,
+        on_failure_callback=task_failed_slack_notification,
+        on_success_callback=task_success_slack_notification,
+        dag=dag,
+    )
 
-sync_kobo_submissions_on_db_task = PythonOperator(
-    task_id='Sync_kobo_data_with_db',
-    provide_context=True,
-    python_callable=sync_submissions_on_db,
-    on_failure_callback=task_failed_slack_notification,
-    on_success_callback=task_success_slack_notification,
-    dag=dag,
-)
-
-save_kobo_data_to_db_task >> sync_kobo_submissions_on_db_task
+    save_kobo_data_to_db_task >> sync_kobo_submissions_on_db_task

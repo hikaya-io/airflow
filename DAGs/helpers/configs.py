@@ -30,19 +30,18 @@ SLACK_CONN_ID = Variable.get('SLACK_CONN_ID', default_var='slack')
 """
 DAG configurations
 """
-DAG_OWNER = Variable.get('DAG_OWNER', default_var='Hikaya-Dots')
+# DAG_OWNER = Variable.get('DAG_OWNER', default_var='Hikaya-Dots')
 DAG_EMAIL = Variable.get('DAG_EMAIL', default_var='amos@hikaya.io')
-DAG_EMAIL_ON_FAILURE = Variable.get('DAG_EMAIL_ON_FAILURE', default_var=True)
-DAG_EMAIL_ON_RETRY = Variable.get('DAG_EMAIL_ON_RETRY', default_var=False)
-DAG_NO_OF_RETRIES = Variable.get('DAG_NO_OF_RETRIES', default_var=2)
-DAG_RETRY_DELAY_IN_MINS = Variable.get('DAG_RETRY_DELAY_IN_MINS', default_var=1)
+# DAG_EMAIL_ON_FAILURE = Variable.get('DAG_EMAIL_ON_FAILURE', default_var=True)
+# DAG_EMAIL_ON_RETRY = Variable.get('DAG_EMAIL_ON_RETRY', default_var=False)
+# DAG_NO_OF_RETRIES = Variable.get('DAG_NO_OF_RETRIES', default_var=2)
+# DAG_RETRY_DELAY_IN_MINS = Variable.get('DAG_RETRY_DELAY_IN_MINS', default_var=1)
 
 
 """
 SurveyCTO Variables
 """
 SURV_SERVER_NAME = Variable.get('SURV_SERVER_NAME', default_var='')
-SURV_FORMS = Variable.get('SURV_FORMS', deserialize_json=True)
 SURV_PASSWORD = Variable.get('SURV_PASSWORD', default_var='')
 SURV_USERNAME = Variable.get('SURV_USERNAME', default_var='')
 SURV_MONGO_URI = Variable.get('SURV_MONGO_URI', default_var='')
@@ -85,6 +84,16 @@ FTP_SERVER_FOLDER = Variable.get('FTP_SERVER_FOLDER', default_var='')
 FTP_SERVER_USERNAME = Variable.get('FTP_SERVER_USERNAME', default_var='')
 FTP_SERVER_PASSWORD = Variable.get('FTP_SERVER_PASSWORD', default_var='')
 FTP_SERVER_EMAIL = Variable.get('FTP_SERVER_EMAIL', default_var='')
+
+"""
+CommCare Variables
+"""
+COMM_CARE_MONGO_DB_URI = Variable.get('COMM_CARE_MONGO_DB_URI', default_var='')
+COMM_CARE_MONGO_DB_NAME = Variable.get('MONGO_DB_NAME', default_var='')
+COMM_CARE_API_URL = Variable.get('COMM_CARE_API_URL', default_var='')
+COMM_CARE_API_KEY = Variable.get('COMM_CARE_API_KEY', default_var='')
+COMM_CARE_API_USERNAME = Variable.get('COMM_CARE_API_USERNAME', default_var='')
+COMM_CARE_PROGRAM_ID = Variable.get('COMM_CARE_PROGRAM_ID', default_var='')
 
 """
 SQL Server Variables

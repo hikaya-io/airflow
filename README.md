@@ -59,39 +59,6 @@ Depending on which DAG you've activated, add the following Variables:
 
 `SURV_PASSWORD =  ''` :- SurveyCTO login password
 
-`SURV_FORMS = ''` :-  A list of forms which submissions should be fetched
-
-Below is how the form list should look
-````
-"SURV_FORMS": [
-        {
-            "name": "name of the form (table name uses this so it should not have spaces)",
-            "unique_column": "PRIMARY KEY COLUMN (used for references so, the column must be unique)",
-            "form_id": "form ID as on SurveyCTO survers",
-            "statuses": [
-                "approved",
-                "pending",
-                "rejected"
-            ],
-            "last_date": "Oct%2013%2C%202015%2000%3A00%3A00%20AM":- url-encoded or epoc,
-            "fields": [
-              {
-                "name": "field_1",
-                "type": "data_type (VAR:-for less than 100 chars, Text:- for long texts)"
-              },
-              {
-                "name": "first_name",
-                "type": "var:"
-              },
-              {
-                "name": "description",
-                "type": "text"
-              }
-    
-            ]
-        }
-	]
-````
 `SURV_DBMS = ''` :- Database management system to dump the data (mongo/mongodb, postgres/postgresdb)
 
 ## Upload the Variables from a json file
