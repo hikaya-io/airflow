@@ -54,7 +54,7 @@ def clean_column_name(column_name):
     """
     # TODO Move away from this file
     if len(column_name) > 60:
-        return column_name[:55] + column_name[-5:] # Less chances of conflicting column names this way
+        return column_name[:53] + "__" + column_name[-5:] # Less chances of conflicting column names this way
     else:
         return column_name
 
@@ -108,7 +108,7 @@ def import_forms_and_submissions(**kwargs):
                     # TODO Provide details about which columns are conflicting
                     logger.error("Conflict in column names")
                 dataframe.to_sql(
-                    form["id"][:40] + "_" + repeat_group["name"][:20], # TODO Find a better/shorter name
+                    form["id"][:40] + "__" + repeat_group["name"][:20], # TODO Find a better/shorter name
                     db.engine,
                     if_exists="replace",
                 )
