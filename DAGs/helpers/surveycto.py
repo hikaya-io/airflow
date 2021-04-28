@@ -45,11 +45,11 @@ class SurveyCTO:
             return csrf_token
         except HTTPError as e:
             logger.error('Could not load SurveyCTO landing page for getting the CSRF token')
-            logger.error(e)
+            logger.exception(e)
             raise e
         except Exception as e:
             logger.error('Unexpected error loading SurveyCTO landing page')
-            logger.error(e)
+            logger.exception(e)
             raise e
 
     def get_all_forms(self):
@@ -67,11 +67,11 @@ class SurveyCTO:
             )
         except HTTPError as e:
             logger.error('Error getting list of SurveyCTO forms')
-            logger.error(e)
+            logger.exception(e)
             raise e
         except Exception as e:
             logger.error('Unexpected error getting list of SurveyCTO forms')
-            logger.error(e)
+            logger.exception(e)
             raise e
         
         active_forms = [
@@ -102,11 +102,11 @@ class SurveyCTO:
             return form_details.json()
         except HTTPError as e:
             logger.error(f'Error getting details of form of ID: {id}')
-            logger.error(e)
+            logger.exception(e)
             raise e
         except Exception as e:
             logger.error(f'Unexpected error getting details of form of ID: {id}')
-            logger.error(e)
+            logger.exception(e)
             raise e
 
 
@@ -135,10 +135,10 @@ class SurveyCTO:
                 return pandas.DataFrame()
         except HTTPError as e:
             logger.error(f'Error getting submissions of form of ID: {id}')
-            logger.error(e)
+            logger.exception(e)
             raise e
         except Exception as e:
-            logger.error(f'Unexpected error getting submissions of form of ID: {id}')
+            logger.exception(f'Unexpected error getting submissions of form of ID: {id}')
 
     def get_repeat_group_submissions(self, form_id, field_name):
         """Get submission of the repeat groups
@@ -153,11 +153,11 @@ class SurveyCTO:
             repeat_group_submissions = self.session.get(url, auth=self.auth_basic)
         except HTTPError as e:
             logger.error(f'Error getting submissions of form of ID: {id}')
-            logger.error(e)
+            logger.exception(e)
             raise e
         except Exception as e:
             logger.error(f'Unexpected error getting submissions of form of ID: {id}')
-            logger.error(e)
+            logger.exception(e)
             raise e
 
         if repeat_group_submissions.status_code == 200 and repeat_group_submissions.text:

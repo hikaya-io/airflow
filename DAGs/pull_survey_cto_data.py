@@ -54,6 +54,14 @@ default_args = {
     "on_success_callback": notification_callback,
 }
 
+def clean_column_name(column_name):
+    """Clean column name (of a Pandas dataframe) as preparation for insertion into PostgreSQL
+    """
+    # TODO Move away from this file
+    if len(column_name) > 60:
+        return column_name[:50] + "__" + column_name[-5:] # Less chances of conflicting column names this way
+    else:
+        return column_name
 
 def import_forms_and_submissions(**kwargs):
     # TODO Save the form itself, and data about it such as repeat groups, last loaded..., in a dedicated table
@@ -77,7 +85,13 @@ def import_forms_and_submissions(**kwargs):
     for form in forms:
         try:
             submissions_dataframe = scto_client.get_form_submissions(form["id"])
-            submissions_dataframe.to_sql(form["id"], db.engine, if_exists="replace")
+            # Cleaning/truncating names of the columns
+            submissions_dataframe.rename(columns=clean_column_name, inplace=True)
+            # Check if there are collisions in the column names after truncating
+            if len(submissions_dataframe.columns.values) > len(set(submissions_dataframe.columns.values)):
+                # TODO Provide details about which columns are conflicting
+                logger.error("Conflict in column names")
+            submissions_dataframe.to_sql(form["id"][:60], db.engine, if_exists="replace")
             logger.info(f"Saved first-level submissions of form {form['id']}")
 
             form_details = scto_client.get_form(form["id"])
@@ -92,8 +106,14 @@ def import_forms_and_submissions(**kwargs):
                 dataframe = scto_client.get_repeat_group_submissions(
                     form["id"], repeat_group["name"]
                 )
+                # Cleaning/truncating names of the columns
+                dataframe.rename(columns=clean_column_name, inplace=True)
+                # Check if there are collisions in the column names after truncating
+                if len(dataframe.columns.values) > len(set(dataframe.columns.values)):
+                    # TODO Provide details about which columns are conflicting
+                    logger.error("Conflict in column names")
                 dataframe.to_sql(
-                    form["id"] + "___" + repeat_group["name"],
+                    form["id"][:50] + "__" + repeat_group["name"][:5], # TODO Find a better/shorter name
                     db.engine,
                     if_exists="replace",
                 )
@@ -106,7 +126,7 @@ def import_forms_and_submissions(**kwargs):
             logger.error(
                 f"Unexpected error handling form of ID: {form['id']}. Please see previous messages."
             )
-            logger.error(e)
+            logger.exception(e)
 
     logger.info(
         f"Successfully imported {len(successfully_imported_forms)} form from a total of {len(forms)} forms"
